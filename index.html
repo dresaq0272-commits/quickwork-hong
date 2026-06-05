@@ -30,7 +30,6 @@
             --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
         }
 
-        /* 🚨 다크모드 가시성 전면 개선 (올 화이트 텍스트 강제) */
         body.dark-mode {
             --color-bg: #0F172A;
             --color-surface: #1E293B;
@@ -83,18 +82,20 @@
         .btn-icon { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--color-text-sub); transition: color 0.2s; padding: 0.25rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
         .btn-icon:hover { color: #EF4444; background: #FEE2E2; }
         
-        /* 🚨 줄바꿈을 지원하는 Textarea 공통 스타일 */
+        /* 🚨 줄바꿈을 지원하는 Textarea 공통 스타일 (찌그러짐 방지 적용) */
         textarea.input-text, textarea.inline-input {
-            overflow: hidden;
+            overflow-y: hidden;
             resize: none;
             box-sizing: border-box;
             font-family: inherit;
             line-height: 1.5;
             vertical-align: middle;
-            word-break: break-word;
+            word-break: keep-all;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
             width: 100%;
         }
-        textarea.inline-input { min-height: 1.8rem; }
+        textarea.inline-input { min-height: 1.8rem; padding-top: 0.2rem; padding-bottom: 0.2rem; }
         
         .input-text { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); font-size: 0.95rem; font-family: inherit; transition: all 0.2s; background: var(--color-surface); color: var(--color-text-main); }
         .input-text:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-light); }
@@ -157,15 +158,16 @@
         .card-dragging { opacity: 0.5; transform: scale(0.98); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); z-index: 100; border: 2px dashed var(--color-primary) !important; }
         .card-dragging * { pointer-events: none !important; }
 
-        .task-header { display: flex; align-items: flex-start; gap: 0.75rem; width: 100%; }
-        .task-controls { display: flex; align-items: flex-start; gap: 0.5rem; flex-shrink: 0; margin-top: 0.1rem; }
-        .btn-toggle { background: transparent; border: 1px solid var(--color-border); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; color: var(--color-text-sub); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 0.1rem; }
-        .task-category { width: 75px; text-align: center; font-weight: 700; font-size: 0.8rem; border-radius: 20px; flex-shrink: 0; margin-top: 0.1rem; }
-        .task-title { flex: 1; min-width: 0; font-weight: 800; font-size: 1.05rem; }
+        /* 🚨 업무카드 헤더 및 텍스트 찌그러짐 방지 제어 */
+        .task-header { display: flex; align-items: flex-start; gap: 0.75rem; width: 100%; flex-wrap: nowrap; }
+        .task-controls { display: flex; align-items: flex-start; gap: 0.5rem; flex-shrink: 0; margin-top: 0.1rem; white-space: nowrap; }
+        .btn-toggle { flex-shrink: 0; background: transparent; border: 1px solid var(--color-border); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; color: var(--color-text-sub); display: flex; align-items: center; justify-content: center; margin-top: 0.1rem; }
+        .task-category { width: 85px !important; min-width: 85px !important; text-align: center; font-weight: 700; font-size: 0.8rem; border-radius: 20px; flex-shrink: 0; margin-top: 0.1rem; }
+        .task-title { flex: 1; min-width: 150px !important; font-weight: 800; font-size: 1.05rem; }
         .task-body { margin-top: 1rem; padding-left: 2.7rem; display: flex; flex-direction: column; gap: 0.75rem; }
         .sub-items-list { display: flex; flex-direction: column; gap: 0.25rem; }
         .sub-item-row { display: flex; gap: 0.5rem; align-items: flex-start; width: 100%; }
-        .sub-item-text { flex: 1; font-size: 0.9rem; }
+        .sub-item-text { flex: 1; font-size: 0.9rem; min-width: 100px !important; }
         .btn-add-sub, .btn-add-remark { background: none; border: 1px dashed var(--color-border); color: var(--color-text-sub); border-radius: 4px; padding: 0.4rem; font-size: 0.8rem; cursor: pointer; transition: 0.2s; margin-top: 0.25rem; width: 100%; text-align: left; }
         .task-footer { display: flex; gap: 1.5rem; align-items: center; font-size: 0.8rem; color: var(--color-text-sub); margin-top: 0.5rem; padding-top: 0.75rem; border-top: 1px dashed var(--color-border); }
         .task-footer .inline-input { padding: 0.1rem 0.3rem; font-size: 0.85rem; width: 120px; font-weight: 600; }
@@ -215,7 +217,7 @@
         .chk-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; padding-right: 0.5rem; padding-bottom: 1rem; }
         .btn-toggle-chk { background: transparent; border: 1px solid var(--color-border); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; color: var(--color-text-sub); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: 0.2s; margin-right: 0.5rem; margin-top: 0.2rem; }
         
-        .chk-title { font-size: 1.15rem; font-weight: 800; color: var(--color-primary); flex: 1; padding: 0.2rem 0.5rem; }
+        .chk-title { font-size: 1.15rem; font-weight: 800; color: var(--color-primary); flex: 1; padding: 0.2rem 0.5rem; min-width: 120px !important; }
         .chk-item-row { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.75rem 0.5rem; border-radius: 8px; transition: transform 0.2s, background 0.2s; background: transparent; border: 1px solid var(--color-border); position: relative; cursor: grab; }
         .chk-item-row:hover { background: var(--color-bg); }
         .chk-item-row:active { cursor: grabbing; }
@@ -226,13 +228,13 @@
         .drag-handle { color: var(--color-text-sub); font-size: 1.2rem; font-weight: bold; letter-spacing: -2px; padding-top: 0.3rem; opacity: 0.3; transition: opacity 0.2s; user-select: none; line-height: 1; }
         .chk-item-row:hover .drag-handle { opacity: 1; }
         
-        .chk-checkbox { width: 1.3rem; height: 1.3rem; margin-top: 0.4rem; cursor: pointer; accent-color: var(--color-primary); }
+        .chk-checkbox { width: 1.3rem; height: 1.3rem; margin-top: 0.4rem; cursor: pointer; accent-color: var(--color-primary); flex-shrink: 0; }
         .chk-inputs { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; margin-top: 2px; }
         .chk-text { font-size: 0.95rem; font-weight: 700; color: var(--color-text-main); }
         
         /* 🚨 메모 입력창 너비 100% 매칭 */
         .chk-memo-list { width: 100%; }
-        .chk-memo { font-size: 0.85rem; color: var(--color-text-sub); border: 1px dashed var(--color-border) !important; flex: 1; width: 100%; }
+        .chk-memo { font-size: 0.85rem; color: var(--color-text-sub); border: 1px dashed var(--color-border) !important; flex: 1; width: 100%; min-width: 100px !important; }
         
         .chk-item-row.completed { opacity: 0.6; }
         .chk-item-row.completed .chk-text, .chk-item-row.completed .chk-memo { text-decoration: line-through; color: var(--color-text-sub) !important; background: transparent !important; border-color: transparent !important; }
@@ -411,6 +413,7 @@
                     
                     if (!globalDB.users || globalDB.users.length === 0) globalDB.users = JSON.parse(JSON.stringify(defaultDB.users)); 
                     
+                    // 🚨 설정 초기화 버그 수정 (DB값 최우선)
                     if (!globalDB.settings) {
                         globalDB.settings = JSON.parse(JSON.stringify(defaultDB.settings));
                     } else {
@@ -456,9 +459,12 @@
             }
         }
 
-        /* 🚨 자동 높이 조절 엔진 (Auto-resize Textarea) */
+        /* 🚨 자동 높이 조절 엔진 (Auto-resize Textarea) - 렌더링 최적화 적용 */
         function autoResizeTextarea(el) {
             if (!el || el.tagName !== 'TEXTAREA') return;
+            // 🚨 화면에 보이지 않거나 렌더링 전일 경우 높이계산을 스킵하여 폭주 방지
+            if (el.offsetWidth === 0 && el.offsetHeight === 0) return;
+            
             el.style.height = 'auto';
             el.style.height = (el.scrollHeight) + 'px';
         }
@@ -476,7 +482,7 @@
         function getCurrentMonthStr() { const today = new Date(); return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`; }
         function showToast(msg) { const container = document.getElementById('toast-container'); const toast = document.createElement('div'); toast.className = 'toast'; toast.innerHTML = `🎉 <span>${msg}</span>`; container.appendChild(toast); setTimeout(() => toast.remove(), 3500); }
 
-        /* 🚨 키보드 이벤트: ESC 닫기 및 Textarea 줄바꿈/저장 제어 */
+        /* 🚨 키보드 이벤트: ESC 모달 닫기 & Textarea Enter(저장)/Shift+Enter(줄바꿈) 제어 */
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 document.getElementById('report-modal').classList.add('hidden');
@@ -485,11 +491,10 @@
                 document.getElementById('admin-user-view-modal')?.classList.add('hidden');
             }
             
-            // Enter키로 저장, Shift+Enter로 줄바꿈
             if (e.target.tagName === 'TEXTAREA' && e.key === 'Enter') {
                 if (!e.shiftKey) {
                     e.preventDefault(); 
-                    e.target.blur(); // 포커스 잃으면 focusout 이벤트로 자동 저장됨
+                    e.target.blur(); // 포커스 해제 -> focusout 이벤트 트리거되어 자동 저장됨
                 }
             }
         });
@@ -602,7 +607,7 @@
         }
 
         /* =========================================
-           2. 로그인 & 회원가입 & 라우팅
+           2. 로그인 & 라우팅
            ========================================= */
         document.getElementById('btn-open-signup').addEventListener('click', () => document.getElementById('signup-modal').classList.remove('hidden'));
         document.getElementById('btn-close-signup').addEventListener('click', () => document.getElementById('signup-modal').classList.add('hidden'));
@@ -1169,7 +1174,7 @@
                 saveDB(db); document.getElementById('task-add-modal').classList.add('hidden'); dashState.tab = (status === '완료') ? 'completed' : 'active'; initDashboard(document.getElementById('content-area'));
             }
             
-            // 대시보드 스마트 토글
+            // 🚨 대시보드 스마트 토글
             if (target.classList.contains('btn-toggle')) { 
                 const c = target.closest('.task-card'), db = getDB(), t = db.tasks.find(x=>x.id===Number(c.dataset.id)); 
                 t.isOpen=!t.isOpen; 
@@ -1185,6 +1190,7 @@
                     body.classList.remove('hidden');
                     subWrap.classList.remove('hidden');
                     footer.classList.remove('hidden');
+                    requestAnimationFrame(() => c.querySelectorAll('textarea').forEach(autoResizeTextarea));
                 } else {
                     subWrap.classList.add('hidden');
                     if (showFooterAlways) {
@@ -1209,12 +1215,24 @@
             if (target.closest('.archive-item') && !target.classList.contains('btn-delete-report')) { const db=getDB(), r=db.reports.find(x=>x.id===Number(target.closest('.archive-item').dataset.id)); if(r){document.getElementById('report-modal-body').innerHTML=`<div class="report-paper" style="box-shadow:none;border:none;padding:1rem;">${r.html}</div>`; document.getElementById('report-modal').classList.remove('hidden');} }
             if (target.classList.contains('btn-delete-report')) { if(confirm('삭제?')){const id=Number(target.closest('.archive-item').dataset.id), db=getDB(); db.reports=db.reports.filter(r=>r.id!==id); saveDB(db); renderArchive(document.getElementById('report-content-area'));} }
             
+            // 🚨 매월 / 일반 체크리스트 토글 (높이 재계산 포함)
             if (target.classList.contains('btn-toggle-chk')) { 
                 const c = target.closest('.chk-card'), db=getDB(), isMonthly = c.dataset.isMonthly==='true';
                 const l = isMonthly ? db.monthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : db.checklists.find(x=>x.id===Number(c.dataset.chkId)); 
-                l.isOpen=!l.isOpen; saveDB(db); target.textContent=l.isOpen?'▼':'▶'; l.isOpen?c.querySelector('.chk-body').classList.remove('hidden'):c.querySelector('.chk-body').classList.add('hidden'); 
+                l.isOpen=!l.isOpen; 
+                saveDB(db); 
+                target.textContent=l.isOpen?'▼':'▶'; 
+                
+                const body = c.querySelector('.chk-body');
+                if (l.isOpen) {
+                    body.classList.remove('hidden');
+                    requestAnimationFrame(() => c.querySelectorAll('textarea').forEach(autoResizeTextarea));
+                } else {
+                    body.classList.add('hidden');
+                }
             }
             if (target.id === 'btn-add-checklist') { const db=getDB(), uid=getCurrentUserId(); const newObj = {id:Date.now(), syncGroupId:Date.now(), userId:uid, title:'', isOpen:true, items:[]}; db.checklists.unshift(newObj); saveDB(db); renderChecklist(); }
+            
             if (target.id === 'btn-add-monthly-checklist') { 
                 const db=getDB(), uid=getCurrentUserId(); 
                 const newObj = {id:Date.now(), syncGroupId:Date.now(), userId:uid, month:monthlyChkState.month, title:'', isOpen:true, items:[]}; 
@@ -1421,17 +1439,20 @@
         document.addEventListener('dragend', (e) => { if (draggedItem) draggedItem.classList.remove('item-dragging', 'card-dragging'); draggedItem = null; dragType = null; stopAutoScroll(); });
 
         /* -----------------------------------------
-           통합 이벤트 위임 (Input & 실시간 변경)
+           통합 이벤트 위임 (Input & 실시간 변경) - Textarea 호환
            ----------------------------------------- */
         document.body.addEventListener('input', (e) => { 
             const target = e.target;
             
+            // 🚨 Textarea 자동 높이 조절
             if (target.tagName === 'TEXTAREA') autoResizeTextarea(target);
             
             if (target.id === 'dash-search') { dashState.search = e.target.value; renderDashList(); } 
             if (target.id === 'chk-search') { chkState.search = e.target.value; renderChecklist(); }
             
             const db = getDB();
+            
+            // Textarea 기반으로 타이핑 시 객체 실시간 갱신 (저장 전)
             const chkCard = target.closest('.chk-card');
             if (chkCard) {
                 const isMonthly = chkCard.dataset.isMonthly === 'true';
