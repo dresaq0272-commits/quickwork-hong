@@ -57,13 +57,15 @@
         body.dark-mode .admin-table tr:hover td { background: #0F172A !important; }
         body.dark-mode .menu-chk-group label { background: #312E81 !important; }
         body.dark-mode .btn-toggle, body.dark-mode .btn-toggle-chk, body.dark-mode .task-category { background: transparent !important; border-color: #475569 !important; }
-        body.dark-mode .duration-badge { background: #064E3B !important; color: #86EFAC !important; }
+        body.dark-mode .duration-badge { border-color: #475569 !important; color: #94A3B8 !important; }
         body.dark-mode .btn-primary { background-color: #4F46E5 !important; }
         body.dark-mode .btn-primary:hover { background-color: #4338CA !important; }
         
-        /* 다크모드 보고서 상태 뱃지 */
-        body.dark-mode .group-status-title.done { color: #A7F3D0 !important; background: rgba(16, 185, 129, 0.2) !important; }
-        body.dark-mode .group-status-title.ing { color: #93C5FD !important; background: rgba(37, 99, 235, 0.2) !important; }
+        /* 다크모드 보고서 포인트 컬러 */
+        body.dark-mode .group-status-title.done { color: #34D399 !important; }
+        body.dark-mode .group-status-title.done::before { background-color: #34D399 !important; }
+        body.dark-mode .group-status-title.ing { color: #60A5FA !important; }
+        body.dark-mode .group-status-title.ing::before { background-color: #60A5FA !important; }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { font-size: 16px; font-family: var(--font-family); color: var(--color-text-main); background-color: var(--color-bg); letter-spacing: -0.01em; transition: background-color 0.3s, color 0.3s; scroll-behavior: smooth; }
@@ -87,7 +89,7 @@
         .btn-icon { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--color-text-sub); transition: color 0.2s; padding: 0.25rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
         .btn-icon:hover { color: #EF4444; background: #FEE2E2; }
         
-        /* 🚨 줄바꿈을 지원하는 Textarea 공통 스타일 */
+        /* 🚨 줄바꿈을 지원하는 Textarea 공통 스타일 (찌그러짐 방지 적용) */
         textarea.input-text, textarea.inline-input {
             overflow-y: hidden;
             resize: none;
@@ -177,33 +179,36 @@
         .task-footer .inline-input { padding: 0.1rem 0.3rem; font-size: 0.85rem; width: 120px; font-weight: 600; }
 
         /* =========================================
-           4. 보고서 레이아웃 (가시성 고도화 반영)
+           4. 보고서 레이아웃 (🚨 미니멀리즘 가시성 고도화)
            ========================================= */
-        .report-header { text-align: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 3px solid var(--color-text-main); }
-        .report-title-main { font-size: 1.7rem; font-weight: 900; line-height: 1.3; white-space: pre-line; margin-bottom: 0.5rem; color: var(--color-text-main); }
-        .report-meta { font-size: 0.85rem; color: var(--color-text-sub); font-weight: 500; }
-        .report-paper { background: var(--color-surface); padding: 3rem 2.5rem; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--color-border); max-width: 850px; margin: 0 auto; color: var(--color-text-main); }
-        .group-category { margin-bottom: 2.5rem; }
-        .group-category-title { font-size: 1.15rem; font-weight: 800; color: var(--color-text-main); padding-left: 0.6rem; border-left: 4px solid var(--color-primary); margin-bottom: 1rem; line-height: 1.2; }
+        .report-header { text-align: center; margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 3px solid var(--color-text-main); }
+        .report-title-main { font-size: 1.8rem; font-weight: 900; line-height: 1.3; white-space: pre-line; margin-bottom: 0.5rem; color: var(--color-text-main); letter-spacing: -0.02em; }
+        .report-meta { font-size: 0.9rem; color: var(--color-text-sub); font-weight: 500; }
+        .report-paper { background: var(--color-surface); padding: 3.5rem 3rem; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--color-border); max-width: 850px; margin: 0 auto; color: var(--color-text-main); }
         
-        /* 🚨 상태별 시각화 요소 추가 */
-        .group-status { margin-bottom: 2rem; padding-left: 1.2rem; border-left: 3px solid var(--color-border); }
-        .group-status.done { border-left-color: var(--status-done); }
-        .group-status.ing { border-left-color: var(--status-ing); }
+        .group-category { margin-bottom: 3rem; }
+        .group-category-title { font-size: 1.25rem; font-weight: 800; color: var(--color-primary); padding-bottom: 0.5rem; border-bottom: 2px solid var(--color-border); margin-bottom: 1.5rem; letter-spacing: -0.01em; }
         
-        .group-status-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.8rem; border-radius: 6px; }
-        .group-status-title.done { color: #064E3B; background: #D1FAE5; }
-        .group-status-title.ing { color: #1E3A8A; background: #DBEAFE; }
+        .group-status { margin-bottom: 1.5rem; }
+        .group-status-title { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; color: var(--color-text-main); }
+        .group-status-title::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+        .group-status-title.done { color: var(--status-done); }
+        .group-status-title.done::before { background-color: var(--status-done); }
+        .group-status-title.ing { color: var(--status-ing); }
+        .group-status-title.ing::before { background-color: var(--status-ing); }
         
-        .report-task { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1.2rem; padding-bottom: 1.2rem; border-bottom: 1px dashed var(--color-border); }
-        .report-task:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .report-task { display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; margin-bottom: 0; padding: 1rem 0.5rem; border-bottom: 1px solid var(--color-bg); }
+        .report-task:last-child { border-bottom: none; }
         .report-task-content { flex: 1; min-width: 0; } 
-        .report-task-title { font-weight: 700; font-size: 1rem; color: var(--color-text-main); margin-bottom: 0.3rem; }
-        .report-task-date { flex-shrink: 0; font-size: 0.8rem; color: var(--color-text-sub); text-align: right; min-width: 130px; line-height: 1.5; font-weight: 500; }
+        .report-task-title { font-weight: 700; font-size: 1.05rem; color: var(--color-text-main); margin-bottom: 0.4rem; display: flex; align-items: flex-start; gap: 0.4rem; line-height: 1.4; }
+        .report-task-title::before { content: '▪'; color: var(--color-border); font-size: 0.8rem; margin-top: 0.1rem; }
         
-        .duration-badge { display: inline-block; background: #DCFCE7; color: #166534; padding: 0.1rem 0.4rem; border-radius: 20px; font-weight: 700; font-size: 0.7rem; }
-        .report-task-subs { padding-left: 1.2rem; font-size: 0.85rem; color: var(--color-text-sub); }
-        .report-task-subs li { margin-bottom: 0.2rem; list-style-type: square; line-height: 1.5; }
+        /* 날짜 및 소요일 레이아웃 정돈 */
+        .report-task-date { flex-shrink: 0; font-size: 0.85rem; color: var(--color-text-sub); text-align: right; min-width: 150px; line-height: 1.6; font-weight: 500; display: flex; flex-direction: column; align-items: flex-end; }
+        .duration-badge { display: inline-block; border: 1px solid var(--color-border); color: var(--color-text-sub); background: transparent; padding: 0.1rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem; margin-top: 4px; }
+        
+        .report-task-subs { padding-left: 1.2rem; font-size: 0.9rem; color: var(--color-text-sub); }
+        .report-task-subs li { margin-bottom: 0.25rem; line-height: 1.5; list-style: none; }
         
         .archive-list { display: flex; flex-direction: column; gap: 1rem; max-width: 850px; margin: 0 auto; }
         .archive-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.2rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--border-radius); cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow-sm); }
@@ -524,14 +529,21 @@
             const futureMonths = getInitializedFutureMonths(db, uid, currentMonth);
             futureMonths.forEach(m => {
                 db.monthlyChecklists.push({
-                    ...newGroup, id: Date.now() + Math.random(), syncGroupId: newGroup.syncGroupId, month: m,
+                    ...newGroup,
+                    id: Date.now() + Math.random(),
+                    syncGroupId: newGroup.syncGroupId,
+                    month: m,
                     items: newGroup.items.map(i => ({...i, id: Date.now() + Math.random()}))
                 });
             });
         }
 
         function syncFutureGroupTitle(db, uid, currentMonth, syncGroupId, newTitle) {
-            getFutureMonthlyLists(db, uid, currentMonth).forEach(c => { if (c.syncGroupId === syncGroupId) c.title = newTitle; });
+            const futureMonths = getInitializedFutureMonths(db, uid, currentMonth);
+            futureMonths.forEach(m => {
+                const targetGroup = db.monthlyChecklists.find(c => c.userId === uid && c.month === m && c.syncGroupId === syncGroupId);
+                if (targetGroup) targetGroup.title = newTitle;
+            });
         }
 
         function syncFutureGroupDelete(db, uid, currentMonth, syncGroupId) {
@@ -726,7 +738,7 @@
         }
 
         /* =========================================
-           4. 보고서 로직 🚨 (UI/UX 개선 뱃지 적용)
+           4. 보고서 로직 (🚨 모던 디자인 고도화 적용)
            ========================================= */
         let reportState = { tab: 'weekly', selectedWeek: '', selectedMonth: '' };
         function generateWeeklyOptions() {
@@ -789,25 +801,24 @@
                 html += `<div class="group-category"><div class="group-category-title">${category}</div>`;
                 statusOrder.forEach(status => {
                     if (statusGroup[status] && statusGroup[status].length > 0) {
-                        // 🚨 완료 / 진행중 명확한 시각적 구분 로직 적용
+                        // 🚨 심플 도트 기반 타이틀 교체
                         const isDone = status === '완료';
                         const statusClass = isDone ? 'done' : 'ing';
-                        const statusIcon = isDone ? '✅' : '🏃';
+                        const statusLabel = isDone ? '완료된 업무' : '진행 중인 업무';
                         
-                        html += `<div class="group-status ${statusClass}"><div class="group-status-title ${statusClass}">${statusIcon} ${status}</div>`;
+                        html += `<div class="group-status"><div class="group-status-title ${statusClass}">${statusLabel}</div>`;
                         statusGroup[status].forEach(t => {
                             let dateStr = '';
                             if (t.startDate) {
-                                dateStr = `<div>${formatShortDate(t.startDate)} ~</div>`;
-                                if (t._reportStatus === '완료' && t.endDate) dateStr += `<div>${formatShortDate(t.endDate)}</div><div style="margin-top:6px;"><span class="duration-badge">${getDaysDiff(t.startDate, t.endDate)}일 소요</span></div>`;
-                                else dateStr += `<div>진행 중</div>`;
+                                dateStr = `<div>${formatShortDate(t.startDate)} ~ ${isDone && t.endDate ? formatShortDate(t.endDate) : '진행 중'}</div>`;
+                                if (isDone && t.endDate) dateStr += `<div style="margin-top:6px;"><span class="duration-badge">${getDaysDiff(t.startDate, t.endDate)}일 소요</span></div>`;
                             } else dateStr = `<div>일정 미정</div>`;
                             
-                            let subsHtml = t.subItems && t.subItems.length > 0 ? `<ul class="report-task-subs">${t.subItems.filter(s => s.text.trim()!=='').map(s => `<li>${s.text}</li>`).join('')}</ul>` : '';
+                            let subsHtml = t.subItems && t.subItems.length > 0 ? `<ul class="report-task-subs">${t.subItems.filter(s => s.text.trim()!=='').map(s => `<li>- ${s.text}</li>`).join('')}</ul>` : '';
                             
                             html += `
                                 <div class="report-task">
-                                    <div class="report-task-content"><div class="report-task-title">- ${t.title}</div>${subsHtml}</div>
+                                    <div class="report-task-content"><div class="report-task-title">${t.title}</div>${subsHtml}</div>
                                     <div class="report-task-date">${dateStr}</div>
                                 </div>
                             `;
@@ -817,9 +828,9 @@
             }
             if (!db.reportRemarks[remarkKey]) { db.reportRemarks[remarkKey] = []; saveDB(db); }
             const userRemarks = db.reportRemarks[remarkKey].filter(r => r.userId === uid);
-            html += `<div class="group-category" style="margin-top: 3.5rem; border-top: 2px dashed var(--color-border); padding-top: 2.5rem;"><div class="group-category-title" style="border-left-color: var(--color-text-sub); color: var(--color-text-main);">■ 비고 및 특이사항</div><div class="report-remarks-list" data-remark-key="${remarkKey}" style="padding-left: 1.2rem;">
-                        ${userRemarks.map(r => `<div class="sub-item-row" data-sub-id="${r.id}" style="margin-bottom:0.75rem; align-items:flex-start; width:100%;"><span style="color:var(--color-text-sub);">•</span><textarea spellcheck="false" rows="1" class="inline-input remark-text" style="flex:1; width:100%;">${r.text}</textarea><button class="btn-icon btn-del-remark">✕</button></div>`).join('')}
-                        <button class="btn-add-remark">+ 특이사항 추가</button></div></div>`;
+            html += `<div class="group-category" style="margin-top: 3.5rem; border-top: 2px dashed var(--color-border); padding-top: 2.5rem;"><div class="group-category-title" style="border-bottom:none; margin-bottom: 0.5rem;">비고 및 특이사항</div><div class="report-remarks-list" data-remark-key="${remarkKey}">
+                        ${userRemarks.map(r => `<div class="sub-item-row" data-sub-id="${r.id}" style="margin-bottom:0.5rem; align-items:flex-start; width:100%;"><span style="color:var(--color-text-sub); padding-top:0.3rem;">•</span><textarea spellcheck="false" rows="1" class="inline-input remark-text" style="flex:1; width:100%; border-bottom: 1px dashed var(--color-border); border-radius: 0;">${r.text}</textarea><button class="btn-icon btn-del-remark" style="margin-top:0.1rem;">✕</button></div>`).join('')}
+                        <button class="btn-add-remark" style="margin-top: 1rem;">+ 특이사항 추가</button></div></div>`;
             return { title, html };
         }
         function renderArchive(area) {
