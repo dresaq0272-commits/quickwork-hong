@@ -124,7 +124,7 @@
         .modal-footer { margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
         .modal-footer.right { justify-content: flex-end; gap: 0.75rem; }
 
-        #toast-container { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; align-items: center; pointer-events: none; }
+        #toast-container { fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; align-items: center; pointer-events: none; }
         .toast { background: var(--color-primary); color: white; padding: 1rem 2rem; border-radius: 30px; font-weight: 700; font-size: 1rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); animation: toastFadeIn 0.4s, toastFadeOut 0.4s 3s forwards; display: flex; align-items: center; gap: 0.5rem; }
         @keyframes toastFadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes toastFadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-20px); } }
@@ -221,13 +221,15 @@
         
         .chk-card { display: flex; flex-direction: column; max-height: 60vh; }
         .chk-header { flex-shrink: 0; display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.25rem; }
+        
         .chk-progress-wrap { padding: 0 0.5rem 0.5rem 0.5rem; border-bottom: 2px solid var(--color-bg); margin-bottom: 0.5rem; }
         .chk-progress-bar { background: var(--color-border); height: 5px; border-radius: 4px; overflow: hidden; width: 100%; margin-top: 4px; }
         .chk-progress-fill { background: var(--color-primary); height: 100%; transition: width 0.3s ease; }
+        
         .chk-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; padding-right: 0.5rem; padding-bottom: 1rem; }
         .btn-toggle-chk { background: transparent; border: 1px solid var(--color-border); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; color: var(--color-text-sub); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: 0.2s; margin-right: 0.5rem; margin-top: 0.2rem; }
-        .chk-title { font-size: 1.15rem; font-weight: 800; color: var(--color-primary); flex: 1; padding: 0.2rem 0.5rem; min-width: 120px !important; }
         
+        .chk-title { font-size: 1.15rem; font-weight: 800; color: var(--color-primary); flex: 1; padding: 0.2rem 0.5rem; min-width: 120px !important; }
         .chk-item-row { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.75rem 0.5rem; border-radius: 8px; transition: transform 0.2s, background 0.2s; background: transparent; border: 1px solid var(--color-border); position: relative; cursor: grab; }
         .chk-item-row:hover { background: var(--color-bg); }
         .chk-item-row:active { cursor: grabbing; }
@@ -266,6 +268,20 @@
             <div class="modal-footer">
                 <label style="font-size: 0.875rem; cursor: pointer; font-weight: 500;"><input type="checkbox" id="chk-hide-today"> 오늘 하루 보지 않기</label>
                 <button class="btn btn-primary" id="btn-close-notice">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="task-complete-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 1.5rem; font-weight: 800; color: var(--color-primary);">✅ 업무 완료 처리</h2>
+            <div class="form-group">
+                <label>실제 완료일을 지정해주세요</label>
+                <input type="date" id="complete-task-date" class="input-text">
+            </div>
+            <div class="modal-footer right">
+                <button class="btn btn-outline" id="btn-cancel-complete">취소</button>
+                <button class="btn btn-primary" id="btn-confirm-complete">완료 처리</button>
             </div>
         </div>
     </div>
@@ -413,9 +429,12 @@
                 
                 if (docSnap.exists()) {
                     globalDB = docSnap.data(); 
+                    
                     if (!globalDB.users || globalDB.users.length === 0) globalDB.users = JSON.parse(JSON.stringify(defaultDB.users)); 
-                    if (!globalDB.settings) globalDB.settings = JSON.parse(JSON.stringify(defaultDB.settings));
-                    else {
+                    
+                    if (!globalDB.settings) {
+                        globalDB.settings = JSON.parse(JSON.stringify(defaultDB.settings));
+                    } else {
                         globalDB.settings.sysTitle = globalDB.settings.sysTitle || defaultDB.settings.sysTitle;
                         if (!globalDB.settings.menuNames) globalDB.settings.menuNames = JSON.parse(JSON.stringify(defaultDB.settings.menuNames));
                         else {
@@ -426,6 +445,7 @@
                             globalDB.settings.menuNames.admin = globalDB.settings.menuNames.admin || defaultDB.settings.menuNames.admin;
                         }
                     }
+                    
                     if (!globalDB.reportRemarks) globalDB.reportRemarks = {}; 
                     if (!globalDB.checklists) globalDB.checklists = []; 
                     if (!globalDB.monthlyChecklists) globalDB.monthlyChecklists = []; 
@@ -443,6 +463,7 @@
                         if (u.role === 'admin' && !u.menus.includes('admin')) u.menus.push('admin');
                         if (!u.group) u.group = '운영팀';
                     });
+                    
                 } else {
                     globalDB = JSON.parse(JSON.stringify(defaultDB));
                     globalDB.monthlyChecklistInit = {};
@@ -478,6 +499,7 @@
                 document.getElementById('report-modal').classList.add('hidden');
                 document.getElementById('task-add-modal').classList.add('hidden');
                 document.getElementById('pw-change-modal').classList.add('hidden');
+                document.getElementById('task-complete-modal')?.classList.add('hidden');
                 document.getElementById('admin-user-view-modal')?.classList.add('hidden');
             }
             if (e.target.tagName === 'TEXTAREA' && e.key === 'Enter') {
@@ -669,13 +691,11 @@
         
         function createCardHTML(t) {
             if (!t.subItems) t.subItems = []; const isDone = t.status === '완료';
-            
             const showFooterAlways = (t.status === '진행중' || t.status === '완료');
             const hideBody = (!t.isOpen && !showFooterAlways) ? 'hidden' : '';
             const hideSub = !t.isOpen ? 'hidden' : '';
             const hideFooter = (!t.isOpen && !showFooterAlways) ? 'hidden' : '';
 
-            // 🚨 하위 항목 드래그 앤 드롭 클래스 추가 (sub-item-row, sub-drag-handle)
             return `<div class="task-card" draggable="true" data-id="${t.id}">
                     <div class="task-header"><button class="btn-toggle">${t.isOpen ? '▼' : '▶'}</button><textarea spellcheck="false" rows="1" class="inline-input task-category" placeholder="분류">${t.category}</textarea><textarea spellcheck="false" rows="1" class="inline-input task-title" placeholder="제목">${t.title}</textarea>
                     <div class="task-controls"><select class="inline-select task-status" style="color: ${getStatusColor(t.status)};">${['대기','진행중','보류','완료'].map(s => `<option ${t.status===s?'selected':''}>${s}</option>`).join('')}</select><button class="btn-icon btn-delete">🗑️</button></div></div>
@@ -692,7 +712,7 @@
                         </div>
                         <div class="task-footer ${hideFooter}">
                             <span title="시작일">📅 <input type="date" class="inline-input task-start" value="${t.startDate}"></span>
-                            ${isDone ? `<span title="완료일">🏁 <input type="date" class="inline-input task-end" value="${t.endDate}"></span>` : ''}
+                            <span title="${isDone ? '완료일' : '목표/완료일'}">🏁 <input type="date" class="inline-input task-end" value="${t.endDate || ''}"></span>
                         </div>
                     </div></div>`;
         }
@@ -795,7 +815,7 @@
                             
                             html += `
                                 <div class="report-task">
-                                    <div class="report-task-content"><div class="report-task-title">${t.title}</div>${subsHtml}</div>
+                                    <div class="report-task-content"><div class="report-task-title">- ${t.title}</div>${subsHtml}</div>
                                     <div class="report-task-date">${dateStr}</div>
                                 </div>
                             `;
@@ -835,7 +855,6 @@
                 </div>
             `;
 
-            // 🚨 메모 영역(memo-row)에 드래그 앤 드롭 기능(draggable) 추가
             return `
                 <div class="chk-card" draggable="true" data-chk-id="${c.id}" data-is-monthly="${isMonthly}">
                     <div class="chk-header">
@@ -873,7 +892,7 @@
                                         ${statusSelect}
                                         <button class="btn-icon btn-toggle-memo" title="메모 접기/펼치기" style="font-size:0.75rem; padding:0.2rem; margin-top:0.2rem;">${memoOpen ? '💬▼' : '💬▶'}</button>
                                     </div>
-                                    <div class="chk-memo-list ${memoOpen ? '' : 'hidden'}">
+                                    <div class="chk-memo-list ${memoOpen ? '' : 'hidden'}" style="width: 100%;">
                                         ${memos.map((m, mIdx) => `
                                             <div class="memo-row" draggable="true" style="display:flex; align-items:flex-start; gap:4px; margin-top:2px; width: 100%;">
                                                 <span class="drag-handle memo-drag-handle" title="드래그하여 순서 변경">⋮⋮</span>
@@ -1143,6 +1162,25 @@
                 saveDB(db); document.getElementById('task-add-modal').classList.add('hidden'); dashState.tab = (status === '완료') ? 'completed' : 'active'; initDashboard(document.getElementById('content-area'));
             }
             
+            // 🚨 대시보드 완료 모달 관련 액션
+            if (target.id === 'btn-cancel-complete') {
+                document.getElementById('task-complete-modal').classList.add('hidden');
+            }
+            if (target.id === 'btn-confirm-complete') {
+                const taskId = Number(document.getElementById('task-complete-modal').dataset.taskId);
+                const db = getDB();
+                const t = db.tasks.find(x => x.id === taskId);
+                if(t) {
+                    const dateVal = document.getElementById('complete-task-date').value || getTodayString();
+                    t.endDate = dateVal;
+                    if(!t.startDate) t.startDate = dateVal;
+                    t.status = '완료';
+                    saveDB(db);
+                    renderDashList();
+                }
+                document.getElementById('task-complete-modal').classList.add('hidden');
+            }
+
             if (target.classList.contains('btn-toggle') && target.closest('.task-card')) { 
                 const c = target.closest('.task-card'), db = getDB(), t = db.tasks.find(x=>x.id===Number(c.dataset.id)); 
                 t.isOpen=!t.isOpen; 
@@ -1327,7 +1365,6 @@
 
         document.addEventListener('dragstart', (e) => {
             if (e.target.classList) {
-                // 🚨 메모 및 하위항목 드래그 타입 분기 추가
                 if (e.target.classList.contains('chk-item-row')) { draggedItem = e.target; dragType = 'item'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('item-dragging'), 0); } 
                 else if (e.target.classList.contains('chk-card') || e.target.classList.contains('task-card')) { draggedItem = e.target; dragType = 'card'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('card-dragging'), 0); }
                 else if (e.target.classList.contains('memo-row')) { draggedItem = e.target; dragType = 'memo'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('memo-dragging'), 0); }
@@ -1338,7 +1375,6 @@
         document.addEventListener('dragover', (e) => {
             if (!draggedItem) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; handleAutoScroll(e);
             
-            // 🚨 메모 및 하위항목 드래그 오버 로직
             if (dragType === 'item') {
                 const row = e.target.closest('.chk-item-row');
                 if (row && row !== draggedItem && row.parentNode === draggedItem.parentNode) {
@@ -1411,7 +1447,6 @@
                         saveDB(db);
                     }
                 }
-            // 🚨 메모 및 하위 항목 DB 반영 로직
             } else if (dragType === 'memo') {
                 const chkCard = draggedItem.closest('.chk-card');
                 const itemRow = draggedItem.closest('.chk-item-row');
@@ -1452,12 +1487,14 @@
            ----------------------------------------- */
         document.body.addEventListener('input', (e) => { 
             const target = e.target;
+            
             if (target.tagName === 'TEXTAREA') autoResizeTextarea(target);
             
             if (target.id === 'dash-search') { dashState.search = e.target.value; renderDashList(); } 
             if (target.id === 'chk-search') { chkState.search = e.target.value; renderChecklist(); }
             
             const db = getDB();
+            
             const chkCard = target.closest('.chk-card');
             if (chkCard) {
                 const isMonthly = chkCard.dataset.isMonthly === 'true';
@@ -1496,7 +1533,35 @@
         document.body.addEventListener('change', async (e) => {
             const target = e.target; const db = getDB();
             
-            const c=target.closest('.task-card'); if(c){const t=db.tasks.find(x=>x.id===Number(c.dataset.id)); if(t){if(target.classList.contains('task-category'))t.category=target.value; if(target.classList.contains('task-title'))t.title=target.value; if(target.classList.contains('task-start'))t.startDate=target.value; if(target.classList.contains('task-end'))t.endDate=target.value; if(target.classList.contains('sub-item-text')){const s=t.subItems.find(x=>x.id===Number(target.closest('.sub-item-row').dataset.subId));if(s)s.text=target.value;} if(target.classList.contains('task-status')){const n=target.value,today=getTodayString();if((n==='진행중'||n==='보류')&&!t.startDate)t.startDate=today;if(n==='완료'){if(!t.endDate)t.endDate=today;if(!t.startDate)t.startDate=today;}t.status=n;saveDB(db);renderDashList();return;}}}
+            const c=target.closest('.task-card'); 
+            if(c){
+                const t=db.tasks.find(x=>x.id===Number(c.dataset.id)); 
+                if(t){
+                    if(target.classList.contains('task-category'))t.category=target.value; 
+                    if(target.classList.contains('task-title'))t.title=target.value; 
+                    if(target.classList.contains('task-start'))t.startDate=target.value; 
+                    if(target.classList.contains('task-end'))t.endDate=target.value; 
+                    if(target.classList.contains('sub-item-text')){const s=t.subItems.find(x=>x.id===Number(target.closest('.sub-item-row').dataset.subId));if(s)s.text=target.value;} 
+                    if(target.classList.contains('task-status')){
+                        const n=target.value, today=getTodayString();
+                        
+                        // 🚨 완료 처리 시 모달 오픈 로직 삽입
+                        if(n === '완료') {
+                            target.value = t.status; // 원상복구 (모달에서 확정 시 변경)
+                            document.getElementById('complete-task-date').value = t.endDate || today;
+                            document.getElementById('task-complete-modal').dataset.taskId = t.id;
+                            document.getElementById('task-complete-modal').classList.remove('hidden');
+                            return;
+                        }
+                        
+                        if((n === '진행중' || n === '보류') && !t.startDate) t.startDate = today;
+                        t.status = n;
+                        saveDB(db);
+                        renderDashList();
+                        return;
+                    }
+                }
+            }
             if(target.id==='select-weekly'){reportState.selectedWeek=target.value;renderReportContent();} if(target.id==='select-monthly'){reportState.selectedMonth=target.value;renderReportContent();}
             if(target.classList.contains('remark-text')){const r=db.reportRemarks[target.closest('.report-remarks-list').dataset.remarkKey].find(x=>x.id===Number(target.closest('.sub-item-row').dataset.subId));if(r){r.text=target.value;target.setAttribute('value',target.value);}}
             
