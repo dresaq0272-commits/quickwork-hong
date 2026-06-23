@@ -9,7 +9,7 @@
     
     <style>
         /* =========================================
-           1. CSS 변수 및 공통 리셋 (라이트/다크 모드 지원)
+           1. CSS 변수 및 공통 리셋
            ========================================= */
         :root {
             --color-primary: #4338CA;
@@ -30,7 +30,6 @@
             --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
         }
 
-        /* 🚨 다크모드 가시성 전면 개선 */
         body.dark-mode {
             --color-bg: #0F172A;
             --color-surface: #1E293B;
@@ -88,7 +87,6 @@
         .btn-icon { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--color-text-sub); transition: color 0.2s; padding: 0.25rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
         .btn-icon:hover { color: #EF4444; background: #FEE2E2; }
         
-        /* 🚨 Textarea 다중 줄바꿈 지원 */
         textarea.input-text, textarea.inline-input { overflow-y: hidden; resize: none; box-sizing: border-box; font-family: inherit; line-height: 1.5; vertical-align: middle; word-break: keep-all; overflow-wrap: break-word; white-space: pre-wrap; width: 100%; }
         textarea.inline-input { min-height: 1.8rem; padding-top: 0.2rem; padding-bottom: 0.2rem; }
         
@@ -124,7 +122,7 @@
         .modal-footer { margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
         .modal-footer.right { justify-content: flex-end; gap: 0.75rem; }
 
-        #toast-container { fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; align-items: center; pointer-events: none; }
+        #toast-container { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; align-items: center; pointer-events: none; }
         .toast { background: var(--color-primary); color: white; padding: 1rem 2rem; border-radius: 30px; font-weight: 700; font-size: 1rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); animation: toastFadeIn 0.4s, toastFadeOut 0.4s 3s forwards; display: flex; align-items: center; gap: 0.5rem; }
         @keyframes toastFadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes toastFadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-20px); } }
@@ -133,7 +131,7 @@
         #btn-stop-impersonation:hover { background: #DC2626; transform: translateY(-3px); }
 
         /* =========================================
-           3. 공통 모듈 (대시보드 및 드래그 앤 드롭 확장)
+           3. 공통 모듈 (대시보드)
            ========================================= */
         .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap:1rem; }
         .tabs { display: flex; gap: 1rem; border-bottom: 2px solid var(--color-border); margin-bottom: 2rem; }
@@ -151,7 +149,6 @@
         .task-card:hover, .chk-card:hover { box-shadow: var(--shadow-md); border-color: var(--color-primary-light); }
         .task-card:active, .chk-card:active { cursor: grabbing; }
         
-        /* 🚨 Drag Handle 통일성 및 효과 */
         .drag-handle { color: var(--color-text-sub); font-size: 1.2rem; font-weight: bold; letter-spacing: -2px; padding-top: 0.3rem; opacity: 0.3; transition: opacity 0.2s; user-select: none; line-height: 1; cursor: grab; }
         .memo-drag-handle, .sub-drag-handle { font-size: 1.1rem; padding-top: 0.3rem; padding-left: 2px; padding-right: 2px; }
         .chk-item-row:hover > .drag-handle, .memo-row:hover .memo-drag-handle, .sub-item-row:hover .sub-drag-handle { opacity: 1; }
@@ -402,7 +399,7 @@
         const firestoreDB = getFirestore(app);
 
         /* =========================================
-           1. DB 초기화 및 헬퍼 함수
+           1. DB 초기화 및 헬퍼 함수 (🚨 비상 락 적용됨)
            ========================================= */
         const DB_KEY = 'AppDB';
         const defaultDB = {
@@ -413,10 +410,16 @@
         };
         
         let globalDB = null; 
+        let isDBConnected = false;
 
         function getDB() { return globalDB; }
 
         async function saveDB(data) { 
+            if (!isDBConnected) {
+                console.error("🚨 DB 연결 오류 상태이므로 저장을 차단했습니다. (데이터 유실 방지)");
+                alert("현재 데이터베이스에 정상적으로 연결되지 않아 데이터 저장이 차단되었습니다.\n\n페이지를 새로고침 하시거나 관리자에게 문의하세요.");
+                return; 
+            }
             globalDB = data;
             try { await setDoc(doc(firestoreDB, "WorkSystem", DB_KEY), data); } 
             catch (e) { console.error("데이터 저장 중 오류:", e); showToast("데이터 클라우드 저장에 실패했습니다."); }
@@ -429,6 +432,7 @@
                 
                 if (docSnap.exists()) {
                     globalDB = docSnap.data(); 
+                    isDBConnected = true;
                     
                     if (!globalDB.users || globalDB.users.length === 0) globalDB.users = JSON.parse(JSON.stringify(defaultDB.users)); 
                     
@@ -467,16 +471,19 @@
                 } else {
                     globalDB = JSON.parse(JSON.stringify(defaultDB));
                     globalDB.monthlyChecklistInit = {};
+                    isDBConnected = true;
                     await saveDB(globalDB);
                 }
             } catch (e) {
                 console.error("Firebase 로딩 오류:", e);
-                alert("데이터베이스 접속에 실패했습니다. 인터넷 연결이나 설정을 확인해주세요.");
+                alert("데이터베이스 접속에 실패했습니다.\n안전을 위해 시스템이 '읽기 전용'으로 작동하며 저장이 차단됩니다.");
                 globalDB = JSON.parse(JSON.stringify(defaultDB)); 
                 globalDB.monthlyChecklistInit = {};
+                isDBConnected = false;
             }
         }
 
+        /* 🚨 자동 높이 조절 엔진 (Auto-resize Textarea) */
         function autoResizeTextarea(el) {
             if (!el || el.tagName !== 'TEXTAREA') return;
             if (el.offsetWidth === 0 && el.offsetHeight === 0) return;
@@ -494,6 +501,7 @@
         function getCurrentMonthStr() { const today = new Date(); return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`; }
         function showToast(msg) { const container = document.getElementById('toast-container'); const toast = document.createElement('div'); toast.className = 'toast'; toast.innerHTML = `🎉 <span>${msg}</span>`; container.appendChild(toast); setTimeout(() => toast.remove(), 3500); }
 
+        /* 🚨 키보드 이벤트 제어 */
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 document.getElementById('report-modal').classList.add('hidden');
@@ -518,13 +526,20 @@
 
         function getInitializedFutureMonths(db, uid, currentMonth) {
             if (!db.monthlyChecklistInit) return [];
-            return Object.keys(db.monthlyChecklistInit).filter(k => k.startsWith(`${uid}_`)).map(k => k.replace(`${uid}_`, '')).filter(m => m > currentMonth).sort();
+            return Object.keys(db.monthlyChecklistInit)
+                .filter(k => k.startsWith(`${uid}_`))
+                .map(k => k.replace(`${uid}_`, ''))
+                .filter(m => m > currentMonth)
+                .sort();
         }
 
         function syncFutureGroupAdd(db, uid, currentMonth, newGroup) {
             const futureMonths = getInitializedFutureMonths(db, uid, currentMonth);
             futureMonths.forEach(m => {
-                db.monthlyChecklists.push({ ...newGroup, id: Date.now() + Math.random(), syncGroupId: newGroup.syncGroupId, month: m, items: newGroup.items.map(i => ({...i, id: Date.now() + Math.random()})) });
+                db.monthlyChecklists.push({
+                    ...newGroup, id: Date.now() + Math.random(), syncGroupId: newGroup.syncGroupId, month: m,
+                    items: newGroup.items.map(i => ({...i, id: Date.now() + Math.random()}))
+                });
             });
         }
 
@@ -826,7 +841,7 @@
             if (!db.reportRemarks[remarkKey]) { db.reportRemarks[remarkKey] = []; saveDB(db); }
             const userRemarks = db.reportRemarks[remarkKey].filter(r => r.userId === uid);
             html += `<div class="group-category" style="margin-top: 3.5rem; border-top: 2px dashed var(--color-border); padding-top: 2.5rem;"><div class="group-category-title" style="border-bottom:none; margin-bottom: 0.5rem;">비고 및 특이사항</div><div class="report-remarks-list" data-remark-key="${remarkKey}">
-                        ${userRemarks.map(r => `<div class="sub-item-row" data-sub-id="${r.id}" style="margin-bottom:0.5rem; align-items:flex-start; width:100%;"><span style="color:var(--color-text-sub); padding-top:0.3rem;">•</span><textarea spellcheck="false" rows="1" class="inline-input remark-text" style="flex:1; width:100%; border-bottom: 1px dashed var(--color-border); border-radius: 0;">${r.text}</textarea><button class="btn-icon btn-del-remark" style="margin-top:0.1rem;">✕</button></div>`).join('')}
+                        ${userRemarks.map(r => `<div class="sub-item-row" data-sub-id="${r.id}" style="margin-bottom:0.5rem; align-items:flex-start; width:100%;"><span style="color:var(--color-text-sub); padding-top:0.3rem;">•</span><textarea spellcheck="false" rows="1" class="inline-input remark-text" style="flex:1; width:100%; border-bottom: 1px dashed var(--color-border); border-radius: 0;">${r.text}</textarea><button class="btn-icon btn-del-remark">✕</button></div>`).join('')}
                         <button class="btn-add-remark" style="margin-top: 1rem;">+ 특이사항 추가</button></div></div>`;
             return { title, html };
         }
@@ -1084,7 +1099,10 @@
                             </div>
                         </div>
                     </div>
-                    <div style="margin-top:1.5rem; text-align:right;"><button class="btn btn-primary" id="btn-save-sys-settings">설정 저장 및 반영</button></div>
+                    <div style="margin-top:1.5rem; text-align:right;">
+                        <button class="btn btn-outline" id="btn-backup-db" style="margin-right: 0.5rem;">💾 전체 데이터 백업 다운로드</button>
+                        <button class="btn btn-primary" id="btn-save-sys-settings">설정 저장 및 반영</button>
+                    </div>
                 </div>
 
                 <div class="admin-section">
@@ -1136,6 +1154,20 @@
         document.body.addEventListener('click', async (e) => {
             const target = e.target;
             
+            // 🚨 수동 백업 기능 구현
+            if (target.id === 'btn-backup-db') {
+                const db = getDB();
+                if (!db) return alert("데이터베이스를 불러올 수 없습니다.");
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", "quickwork_backup_" + getTodayString() + ".json");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+                return;
+            }
+
             if (target.id === 'btn-prev-month' || target.closest('#btn-prev-month')) {
                 monthlyChkState.month = getPrevMonthStr(monthlyChkState.month);
                 document.getElementById('monthly-month-select').value = monthlyChkState.month;
@@ -1162,7 +1194,6 @@
                 saveDB(db); document.getElementById('task-add-modal').classList.add('hidden'); dashState.tab = (status === '완료') ? 'completed' : 'active'; initDashboard(document.getElementById('content-area'));
             }
             
-            // 🚨 대시보드 완료 모달 관련 액션
             if (target.id === 'btn-cancel-complete') {
                 document.getElementById('task-complete-modal').classList.add('hidden');
             }
@@ -1494,7 +1525,6 @@
             if (target.id === 'chk-search') { chkState.search = e.target.value; renderChecklist(); }
             
             const db = getDB();
-            
             const chkCard = target.closest('.chk-card');
             if (chkCard) {
                 const isMonthly = chkCard.dataset.isMonthly === 'true';
@@ -1545,9 +1575,8 @@
                     if(target.classList.contains('task-status')){
                         const n=target.value, today=getTodayString();
                         
-                        // 🚨 완료 처리 시 모달 오픈 로직 삽입
                         if(n === '완료') {
-                            target.value = t.status; // 원상복구 (모달에서 확정 시 변경)
+                            target.value = t.status; 
                             document.getElementById('complete-task-date').value = t.endDate || today;
                             document.getElementById('task-complete-modal').dataset.taskId = t.id;
                             document.getElementById('task-complete-modal').classList.remove('hidden');
