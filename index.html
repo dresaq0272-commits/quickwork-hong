@@ -9,7 +9,7 @@
     
     <style>
         /* =========================================
-           1. CSS 변수 및 공통 리셋
+           1. CSS 변수 및 공통 리셋 (라이트/다크 모드 지원)
            ========================================= */
         :root {
             --color-primary: #4338CA;
@@ -30,6 +30,7 @@
             --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
         }
 
+        /* 🚨 다크모드 가시성 전면 개선 */
         body.dark-mode {
             --color-bg: #0F172A;
             --color-surface: #1E293B;
@@ -87,7 +88,19 @@
         .btn-icon { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--color-text-sub); transition: color 0.2s; padding: 0.25rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
         .btn-icon:hover { color: #EF4444; background: #FEE2E2; }
         
-        textarea.input-text, textarea.inline-input { overflow-y: hidden; resize: none; box-sizing: border-box; font-family: inherit; line-height: 1.5; vertical-align: middle; word-break: keep-all; overflow-wrap: break-word; white-space: pre-wrap; width: 100%; }
+        /* 🚨 줄바꿈을 지원하는 Textarea 공통 스타일 (찌그러짐 방지 적용) */
+        textarea.input-text, textarea.inline-input {
+            overflow-y: hidden;
+            resize: none;
+            box-sizing: border-box;
+            font-family: inherit;
+            line-height: 1.5;
+            vertical-align: middle;
+            word-break: keep-all;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+            width: 100%;
+        }
         textarea.inline-input { min-height: 1.8rem; padding-top: 0.2rem; padding-bottom: 0.2rem; }
         
         .input-text { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); font-size: 0.95rem; font-family: inherit; transition: all 0.2s; background: var(--color-surface); color: var(--color-text-main); }
@@ -131,7 +144,7 @@
         #btn-stop-impersonation:hover { background: #DC2626; transform: translateY(-3px); }
 
         /* =========================================
-           3. 공통 모듈 (대시보드)
+           3. 공통 모듈 (대시보드 및 드래그 앤 드롭 확장)
            ========================================= */
         .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap:1rem; }
         .tabs { display: flex; gap: 1rem; border-bottom: 2px solid var(--color-border); margin-bottom: 2rem; }
@@ -149,6 +162,7 @@
         .task-card:hover, .chk-card:hover { box-shadow: var(--shadow-md); border-color: var(--color-primary-light); }
         .task-card:active, .chk-card:active { cursor: grabbing; }
         
+        /* 🚨 Drag Handle 통일성 및 효과 */
         .drag-handle { color: var(--color-text-sub); font-size: 1.2rem; font-weight: bold; letter-spacing: -2px; padding-top: 0.3rem; opacity: 0.3; transition: opacity 0.2s; user-select: none; line-height: 1; cursor: grab; }
         .memo-drag-handle, .sub-drag-handle { font-size: 1.1rem; padding-top: 0.3rem; padding-left: 2px; padding-right: 2px; }
         .chk-item-row:hover > .drag-handle, .memo-row:hover .memo-drag-handle, .sub-item-row:hover .sub-drag-handle { opacity: 1; }
@@ -162,6 +176,7 @@
         .memo-dragging { opacity: 0.4; background: var(--color-primary-light) !important; border: 1px dashed var(--color-primary) !important; }
         .card-dragging *, .item-dragging *, .memo-dragging * { pointer-events: none !important; }
 
+        /* 🚨 업무카드 헤더 및 텍스트 찌그러짐 방지 제어 */
         .task-header { display: flex; align-items: flex-start; gap: 0.75rem; width: 100%; flex-wrap: nowrap; }
         .task-controls { display: flex; align-items: flex-start; gap: 0.5rem; flex-shrink: 0; margin-top: 0.1rem; white-space: nowrap; }
         .btn-toggle { flex-shrink: 0; background: transparent; border: 1px solid var(--color-border); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; color: var(--color-text-sub); display: flex; align-items: center; justify-content: center; margin-top: 0.1rem; }
@@ -176,7 +191,7 @@
         .task-footer .inline-input { padding: 0.1rem 0.3rem; font-size: 0.85rem; width: 120px; font-weight: 600; }
 
         /* =========================================
-           4. 보고서 레이아웃
+           4. 보고서 레이아웃 (가시성 고도화 반영)
            ========================================= */
         .report-header { text-align: center; margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 3px solid var(--color-text-main); }
         .report-title-main { font-size: 1.8rem; font-weight: 900; line-height: 1.3; white-space: pre-line; margin-bottom: 0.5rem; color: var(--color-text-main); letter-spacing: -0.02em; }
@@ -410,16 +425,18 @@
         };
         
         let globalDB = null; 
-        let isDBConnected = false;
+        let isDBConnected = false; // 🚨 안전장치: DB 연결 상태 추적 플래그
 
         function getDB() { return globalDB; }
 
         async function saveDB(data) { 
+            // 🚨 안전장치: DB가 정상적으로 로드되지 않았다면 절대 덮어쓰지 않고 방어함
             if (!isDBConnected) {
                 console.error("🚨 DB 연결 오류 상태이므로 저장을 차단했습니다. (데이터 유실 방지)");
                 alert("현재 데이터베이스에 정상적으로 연결되지 않아 데이터 저장이 차단되었습니다.\n\n페이지를 새로고침 하시거나 관리자에게 문의하세요.");
                 return; 
             }
+            
             globalDB = data;
             try { await setDoc(doc(firestoreDB, "WorkSystem", DB_KEY), data); } 
             catch (e) { console.error("데이터 저장 중 오류:", e); showToast("데이터 클라우드 저장에 실패했습니다."); }
@@ -432,7 +449,7 @@
                 
                 if (docSnap.exists()) {
                     globalDB = docSnap.data(); 
-                    isDBConnected = true;
+                    isDBConnected = true; // 🚨 정상 연결 확인
                     
                     if (!globalDB.users || globalDB.users.length === 0) globalDB.users = JSON.parse(JSON.stringify(defaultDB.users)); 
                     
@@ -471,7 +488,7 @@
                 } else {
                     globalDB = JSON.parse(JSON.stringify(defaultDB));
                     globalDB.monthlyChecklistInit = {};
-                    isDBConnected = true;
+                    isDBConnected = true; // 최초 생성이므로 정상 연결
                     await saveDB(globalDB);
                 }
             } catch (e) {
@@ -479,7 +496,7 @@
                 alert("데이터베이스 접속에 실패했습니다.\n안전을 위해 시스템이 '읽기 전용'으로 작동하며 저장이 차단됩니다.");
                 globalDB = JSON.parse(JSON.stringify(defaultDB)); 
                 globalDB.monthlyChecklistInit = {};
-                isDBConnected = false;
+                isDBConnected = false; // 🚨 에러 시 락(Lock)을 걸어 절대 저장되지 않게 함
             }
         }
 
@@ -536,10 +553,7 @@
         function syncFutureGroupAdd(db, uid, currentMonth, newGroup) {
             const futureMonths = getInitializedFutureMonths(db, uid, currentMonth);
             futureMonths.forEach(m => {
-                db.monthlyChecklists.push({
-                    ...newGroup, id: Date.now() + Math.random(), syncGroupId: newGroup.syncGroupId, month: m,
-                    items: newGroup.items.map(i => ({...i, id: Date.now() + Math.random()}))
-                });
+                db.monthlyChecklists.push({ ...newGroup, id: Date.now() + Math.random(), syncGroupId: newGroup.syncGroupId, month: m, items: newGroup.items.map(i => ({...i, id: Date.now() + Math.random()})) });
             });
         }
 
@@ -733,7 +747,9 @@
         }
         function renderDashList() {
             const container = document.getElementById('task-list-container'); if(!container) return;
-            const db = getDB(), uid = getCurrentUserId();
+            const db = getDB(); 
+            if(!db) return; // 락 상태 방어
+            const uid = getCurrentUserId();
             const filtered = db.tasks.filter(t => t.userId === uid && (t.title.toLowerCase().includes(dashState.search.toLowerCase()) || t.category.toLowerCase().includes(dashState.search.toLowerCase())));
             
             if (dashState.tab === 'active') {
@@ -782,7 +798,9 @@
             requestAnimationFrame(resizeAllTextareas);
         }
         function generateReportHTML(type) {
-            const db = getDB(); const uid = getCurrentUserId();
+            const db = getDB(); 
+            if(!db) return { title:'', html:'' };
+            const uid = getCurrentUserId();
             let periodStart, periodEnd, title, remarkKey;
             
             if (type === 'weekly') {
@@ -830,7 +848,7 @@
                             
                             html += `
                                 <div class="report-task">
-                                    <div class="report-task-content"><div class="report-task-title">- ${t.title}</div>${subsHtml}</div>
+                                    <div class="report-task-content"><div class="report-task-title">${t.title}</div>${subsHtml}</div>
                                     <div class="report-task-date">${dateStr}</div>
                                 </div>
                             `;
@@ -841,12 +859,13 @@
             if (!db.reportRemarks[remarkKey]) { db.reportRemarks[remarkKey] = []; saveDB(db); }
             const userRemarks = db.reportRemarks[remarkKey].filter(r => r.userId === uid);
             html += `<div class="group-category" style="margin-top: 3.5rem; border-top: 2px dashed var(--color-border); padding-top: 2.5rem;"><div class="group-category-title" style="border-bottom:none; margin-bottom: 0.5rem;">비고 및 특이사항</div><div class="report-remarks-list" data-remark-key="${remarkKey}">
-                        ${userRemarks.map(r => `<div class="sub-item-row" data-sub-id="${r.id}" style="margin-bottom:0.5rem; align-items:flex-start; width:100%;"><span style="color:var(--color-text-sub); padding-top:0.3rem;">•</span><textarea spellcheck="false" rows="1" class="inline-input remark-text" style="flex:1; width:100%; border-bottom: 1px dashed var(--color-border); border-radius: 0;">${r.text}</textarea><button class="btn-icon btn-del-remark">✕</button></div>`).join('')}
+                        ${userRemarks.map(r => `<div class="sub-item-row" data-sub-id="${r.id}" style="margin-bottom:0.5rem; align-items:flex-start; width:100%;"><span style="color:var(--color-text-sub); padding-top:0.3rem;">•</span><textarea spellcheck="false" rows="1" class="inline-input remark-text" style="flex:1; width:100%; border-bottom: 1px dashed var(--color-border); border-radius: 0;">${r.text}</textarea><button class="btn-icon btn-del-remark" style="margin-top:0.1rem;">✕</button></div>`).join('')}
                         <button class="btn-add-remark" style="margin-top: 1rem;">+ 특이사항 추가</button></div></div>`;
             return { title, html };
         }
         function renderArchive(area) {
-            const db = getDB(), uid = getCurrentUserId();
+            const db = getDB(); if(!db) return;
+            const uid = getCurrentUserId();
             const userReports = db.reports.filter(r => r.userId === uid); 
             if (userReports.length === 0) { area.innerHTML = `<div style="text-align:center; padding:4rem; color:var(--color-text-sub);">저장된 보고서가 없습니다.</div>`; return; }
             const sorted = [...userReports].sort((a,b) => b.id - a.id);
@@ -948,7 +967,8 @@
             const lastScrollY = window.scrollY; const cardScrolls = new Map();
             document.querySelectorAll('.chk-card').forEach(card => { const body = card.querySelector('.chk-body'); if (body) cardScrolls.set(card.dataset.chkId, body.scrollTop); });
 
-            const db = getDB(), uid = getCurrentUserId();
+            const db = getDB(); if(!db) return;
+            const uid = getCurrentUserId();
             let filtered = db.checklists.filter(c => c.userId === uid); 
             
             if (chkState.search.trim() !== '') {
@@ -1001,6 +1021,7 @@
         }
 
         async function ensureMonthInitialized(db, uid, targetMonth) {
+            if(!db) return;
             const initKey = `${uid}_${targetMonth}`;
             if (db.monthlyChecklistInit && db.monthlyChecklistInit[initKey]) return;
 
@@ -1060,7 +1081,8 @@
             const lastScrollY = window.scrollY; const cardScrolls = new Map();
             document.querySelectorAll('.chk-card').forEach(card => { const body = card.querySelector('.chk-body'); if (body) cardScrolls.set(card.dataset.chkId, body.scrollTop); });
 
-            const db = getDB(), uid = getCurrentUserId();
+            const db = getDB(); if(!db) return;
+            const uid = getCurrentUserId();
             
             await ensureMonthInitialized(db, uid, monthlyChkState.month);
             await saveDB(db);
@@ -1078,10 +1100,10 @@
         }
 
         /* =========================================
-           6. 관리자 제어판 로직
+           6. 관리자 제어판 로직 (🚨 백업/복원 기능 탑재)
            ========================================= */
         function initAdmin(container) {
-            const db = getDB();
+            const db = getDB(); if(!db) return;
             container.innerHTML = `
                 <div class="dashboard-header"><h2 style="font-size:1.5rem; font-weight:800; color:var(--color-text-main);">⚙️ 설정</h2></div>
                 <div class="admin-section">
@@ -1100,6 +1122,8 @@
                         </div>
                     </div>
                     <div style="margin-top:1.5rem; text-align:right;">
+                        <input type="file" id="backup-file-input" accept=".json" style="display:none;">
+                        <button class="btn btn-outline" id="btn-restore-db" style="margin-right: 0.5rem; color: #EF4444; border-color: #EF4444;">📂 데이터 복원 (업로드)</button>
                         <button class="btn btn-outline" id="btn-backup-db" style="margin-right: 0.5rem;">💾 전체 데이터 백업 다운로드</button>
                         <button class="btn btn-primary" id="btn-save-sys-settings">설정 저장 및 반영</button>
                     </div>
@@ -1154,7 +1178,7 @@
         document.body.addEventListener('click', async (e) => {
             const target = e.target;
             
-            // 🚨 수동 백업 기능 구현
+            // 🚨 수동 백업(다운로드) 기능
             if (target.id === 'btn-backup-db') {
                 const db = getDB();
                 if (!db) return alert("데이터베이스를 불러올 수 없습니다.");
@@ -1165,6 +1189,12 @@
                 document.body.appendChild(downloadAnchorNode);
                 downloadAnchorNode.click();
                 downloadAnchorNode.remove();
+                return;
+            }
+            
+            // 🚨 수동 복원(업로드) 파일 선택창 열기
+            if (target.id === 'btn-restore-db') {
+                document.getElementById('backup-file-input').click();
                 return;
             }
 
@@ -1518,7 +1548,6 @@
            ----------------------------------------- */
         document.body.addEventListener('input', (e) => { 
             const target = e.target;
-            
             if (target.tagName === 'TEXTAREA') autoResizeTextarea(target);
             
             if (target.id === 'dash-search') { dashState.search = e.target.value; renderDashList(); } 
@@ -1561,7 +1590,37 @@
         });
 
         document.body.addEventListener('change', async (e) => {
-            const target = e.target; const db = getDB();
+            const target = e.target; 
+            const db = getDB();
+            
+            // 🚨 복원 파일 업로드 처리 로직
+            if (target.id === 'backup-file-input') {
+                const file = target.files[0];
+                if (!file) return;
+
+                if (!confirm("🚨 [경고] 복원을 진행하면 현재 시스템의 모든 데이터가 업로드한 파일의 내용으로 완전히 덮어씌워집니다.\n\n정말 시스템을 복원하시겠습니까?")) {
+                    target.value = ''; 
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = async function(event) {
+                    try {
+                        const parsedData = JSON.parse(event.target.result);
+                        if (!parsedData.users || !parsedData.settings) throw new Error("올바른 QuickWork 백업 파일 형식이 아닙니다.");
+                        
+                        isDBConnected = true; // 복원(강제 덮어쓰기)을 위해 락 해제
+                        await saveDB(parsedData);
+                        alert("✅ 데이터 복원이 성공적으로 완료되었습니다.\n시스템을 다시 시작합니다.");
+                        location.reload();
+                    } catch (error) {
+                        alert("파일을 읽는 중 오류가 발생했습니다: " + error.message);
+                    }
+                    target.value = ''; // 초기화
+                };
+                reader.readAsText(file);
+                return;
+            }
             
             const c=target.closest('.task-card'); 
             if(c){
