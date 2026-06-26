@@ -88,19 +88,7 @@
         .btn-icon { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--color-text-sub); transition: color 0.2s; padding: 0.25rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
         .btn-icon:hover { color: #EF4444; background: #FEE2E2; }
         
-        /* 🚨 줄바꿈을 지원하는 Textarea 공통 스타일 (찌그러짐 방지 적용) */
-        textarea.input-text, textarea.inline-input {
-            overflow-y: hidden;
-            resize: none;
-            box-sizing: border-box;
-            font-family: inherit;
-            line-height: 1.5;
-            vertical-align: middle;
-            word-break: keep-all;
-            overflow-wrap: break-word;
-            white-space: pre-wrap;
-            width: 100%;
-        }
+        textarea.input-text, textarea.inline-input { overflow-y: hidden; resize: none; box-sizing: border-box; font-family: inherit; line-height: 1.5; vertical-align: middle; word-break: keep-all; overflow-wrap: break-word; white-space: pre-wrap; width: 100%; }
         textarea.inline-input { min-height: 1.8rem; padding-top: 0.2rem; padding-bottom: 0.2rem; }
         
         .input-text { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); font-size: 0.95rem; font-family: inherit; transition: all 0.2s; background: var(--color-surface); color: var(--color-text-main); }
@@ -144,7 +132,7 @@
         #btn-stop-impersonation:hover { background: #DC2626; transform: translateY(-3px); }
 
         /* =========================================
-           3. 공통 모듈 (대시보드 및 드래그 앤 드롭 확장)
+           3. 공통 모듈 (대시보드)
            ========================================= */
         .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap:1rem; }
         .tabs { display: flex; gap: 1rem; border-bottom: 2px solid var(--color-border); margin-bottom: 2rem; }
@@ -162,7 +150,6 @@
         .task-card:hover, .chk-card:hover { box-shadow: var(--shadow-md); border-color: var(--color-primary-light); }
         .task-card:active, .chk-card:active { cursor: grabbing; }
         
-        /* 🚨 Drag Handle 통일성 및 효과 */
         .drag-handle { color: var(--color-text-sub); font-size: 1.2rem; font-weight: bold; letter-spacing: -2px; padding-top: 0.3rem; opacity: 0.3; transition: opacity 0.2s; user-select: none; line-height: 1; cursor: grab; }
         .memo-drag-handle, .sub-drag-handle { font-size: 1.1rem; padding-top: 0.3rem; padding-left: 2px; padding-right: 2px; }
         .chk-item-row:hover > .drag-handle, .memo-row:hover .memo-drag-handle, .sub-item-row:hover .sub-drag-handle { opacity: 1; }
@@ -176,7 +163,6 @@
         .memo-dragging { opacity: 0.4; background: var(--color-primary-light) !important; border: 1px dashed var(--color-primary) !important; }
         .card-dragging *, .item-dragging *, .memo-dragging * { pointer-events: none !important; }
 
-        /* 🚨 업무카드 헤더 및 텍스트 찌그러짐 방지 제어 */
         .task-header { display: flex; align-items: flex-start; gap: 0.75rem; width: 100%; flex-wrap: nowrap; }
         .task-controls { display: flex; align-items: flex-start; gap: 0.5rem; flex-shrink: 0; margin-top: 0.1rem; white-space: nowrap; }
         .btn-toggle { flex-shrink: 0; background: transparent; border: 1px solid var(--color-border); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; color: var(--color-text-sub); display: flex; align-items: center; justify-content: center; margin-top: 0.1rem; }
@@ -191,7 +177,7 @@
         .task-footer .inline-input { padding: 0.1rem 0.3rem; font-size: 0.85rem; width: 120px; font-weight: 600; }
 
         /* =========================================
-           4. 보고서 레이아웃 (가시성 고도화 반영)
+           4. 보고서 레이아웃
            ========================================= */
         .report-header { text-align: center; margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 3px solid var(--color-text-main); }
         .report-title-main { font-size: 1.8rem; font-weight: 900; line-height: 1.3; white-space: pre-line; margin-bottom: 0.5rem; color: var(--color-text-main); letter-spacing: -0.02em; }
@@ -284,6 +270,7 @@
         </div>
     </div>
 
+    <!-- 🚨 완료 시 완료일 지정 모달 -->
     <div id="task-complete-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h2 style="margin-bottom: 1.5rem; font-weight: 800; color: var(--color-primary);">✅ 업무 완료 처리</h2>
@@ -414,7 +401,7 @@
         const firestoreDB = getFirestore(app);
 
         /* =========================================
-           1. DB 초기화 및 헬퍼 함수 (🚨 비상 락 적용됨)
+           1. DB 초기화 및 헬퍼 함수
            ========================================= */
         const DB_KEY = 'AppDB';
         const defaultDB = {
@@ -425,12 +412,11 @@
         };
         
         let globalDB = null; 
-        let isDBConnected = false; // 🚨 안전장치: DB 연결 상태 추적 플래그
+        let isDBConnected = false; 
 
         function getDB() { return globalDB; }
 
         async function saveDB(data) { 
-            // 🚨 안전장치: DB가 정상적으로 로드되지 않았다면 절대 덮어쓰지 않고 방어함
             if (!isDBConnected) {
                 console.error("🚨 DB 연결 오류 상태이므로 저장을 차단했습니다. (데이터 유실 방지)");
                 alert("현재 데이터베이스에 정상적으로 연결되지 않아 데이터 저장이 차단되었습니다.\n\n페이지를 새로고침 하시거나 관리자에게 문의하세요.");
@@ -449,7 +435,7 @@
                 
                 if (docSnap.exists()) {
                     globalDB = docSnap.data(); 
-                    isDBConnected = true; // 🚨 정상 연결 확인
+                    isDBConnected = true; 
                     
                     if (!globalDB.users || globalDB.users.length === 0) globalDB.users = JSON.parse(JSON.stringify(defaultDB.users)); 
                     
@@ -488,7 +474,7 @@
                 } else {
                     globalDB = JSON.parse(JSON.stringify(defaultDB));
                     globalDB.monthlyChecklistInit = {};
-                    isDBConnected = true; // 최초 생성이므로 정상 연결
+                    isDBConnected = true; 
                     await saveDB(globalDB);
                 }
             } catch (e) {
@@ -496,11 +482,10 @@
                 alert("데이터베이스 접속에 실패했습니다.\n안전을 위해 시스템이 '읽기 전용'으로 작동하며 저장이 차단됩니다.");
                 globalDB = JSON.parse(JSON.stringify(defaultDB)); 
                 globalDB.monthlyChecklistInit = {};
-                isDBConnected = false; // 🚨 에러 시 락(Lock)을 걸어 절대 저장되지 않게 함
+                isDBConnected = false; 
             }
         }
 
-        /* 🚨 자동 높이 조절 엔진 (Auto-resize Textarea) */
         function autoResizeTextarea(el) {
             if (!el || el.tagName !== 'TEXTAREA') return;
             if (el.offsetWidth === 0 && el.offsetHeight === 0) return;
@@ -518,7 +503,6 @@
         function getCurrentMonthStr() { const today = new Date(); return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`; }
         function showToast(msg) { const container = document.getElementById('toast-container'); const toast = document.createElement('div'); toast.className = 'toast'; toast.innerHTML = `🎉 <span>${msg}</span>`; container.appendChild(toast); setTimeout(() => toast.remove(), 3500); }
 
-        /* 🚨 키보드 이벤트 제어 */
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 document.getElementById('report-modal').classList.add('hidden');
@@ -558,7 +542,11 @@
         }
 
         function syncFutureGroupTitle(db, uid, currentMonth, syncGroupId, newTitle) {
-            getFutureMonthlyLists(db, uid, currentMonth).forEach(c => { if (c.syncGroupId === syncGroupId) c.title = newTitle; });
+            const futureMonths = getInitializedFutureMonths(db, uid, currentMonth);
+            futureMonths.forEach(m => {
+                const targetGroup = db.monthlyChecklists.find(c => c.userId === uid && c.month === m && c.syncGroupId === syncGroupId);
+                if (targetGroup) targetGroup.title = newTitle;
+            });
         }
 
         function syncFutureGroupDelete(db, uid, currentMonth, syncGroupId) {
@@ -720,6 +708,7 @@
         
         function createCardHTML(t) {
             if (!t.subItems) t.subItems = []; const isDone = t.status === '완료';
+            
             const showFooterAlways = (t.status === '진행중' || t.status === '완료');
             const hideBody = (!t.isOpen && !showFooterAlways) ? 'hidden' : '';
             const hideSub = !t.isOpen ? 'hidden' : '';
@@ -754,10 +743,31 @@
             
             if (dashState.tab === 'active') {
                 const p = filtered.filter(t => t.status === '대기'), i = filtered.filter(t => t.status === '진행중'), h = filtered.filter(t => t.status === '보류');
+                
+                // 🚨 진행일 기준 정렬 버튼 추가 (대기, 진행중, 보류)
                 container.innerHTML = `<div class="kanban-board">
-                    <div class="kanban-col" data-status="대기"><div class="col-title" style="color:var(--status-wait)">대기 (${p.length})</div><div class="task-list-wrap">${p.map(createCardHTML).join('')}</div></div>
-                    <div class="kanban-col" data-status="진행중" style="background:var(--color-bg); border-color:var(--color-border);"><div class="col-title" style="color:var(--status-ing)">진행중 (${i.length})</div><div class="task-list-wrap">${i.map(createCardHTML).join('')}</div></div>
-                    <div class="kanban-col" data-status="보류" style="background:var(--color-bg); border-color:var(--color-border);"><div class="col-title" style="color:var(--status-hold)">보류 (${h.length})</div><div class="task-list-wrap">${h.map(createCardHTML).join('')}</div></div></div>`;
+                    <div class="kanban-col" data-status="대기">
+                        <div class="col-title" style="color:var(--status-wait); display:flex; justify-content:space-between; width:100%;">
+                            <span>대기 (${p.length})</span>
+                            <button class="btn-icon btn-sort-tasks" data-status="대기" title="시작일 기준 오름차순 정렬" style="font-size:0.75rem; padding:0.2rem 0.4rem; border:1px solid var(--color-border); background:var(--color-surface); border-radius:4px; color:var(--color-text-sub);">📅 정렬</button>
+                        </div>
+                        <div class="task-list-wrap">${p.map(createCardHTML).join('')}</div>
+                    </div>
+                    <div class="kanban-col" data-status="진행중" style="background:var(--color-bg); border-color:var(--color-border);">
+                        <div class="col-title" style="color:var(--status-ing); display:flex; justify-content:space-between; width:100%;">
+                            <span>진행중 (${i.length})</span>
+                            <button class="btn-icon btn-sort-tasks" data-status="진행중" title="시작일 기준 오름차순 정렬" style="font-size:0.75rem; padding:0.2rem 0.4rem; border:1px solid var(--color-border); background:var(--color-surface); border-radius:4px; color:var(--color-text-sub);">📅 정렬</button>
+                        </div>
+                        <div class="task-list-wrap">${i.map(createCardHTML).join('')}</div>
+                    </div>
+                    <div class="kanban-col" data-status="보류" style="background:var(--color-bg); border-color:var(--color-border);">
+                        <div class="col-title" style="color:var(--status-hold); display:flex; justify-content:space-between; width:100%;">
+                            <span>보류 (${h.length})</span>
+                            <button class="btn-icon btn-sort-tasks" data-status="보류" title="시작일 기준 오름차순 정렬" style="font-size:0.75rem; padding:0.2rem 0.4rem; border:1px solid var(--color-border); background:var(--color-surface); border-radius:4px; color:var(--color-text-sub);">📅 정렬</button>
+                        </div>
+                        <div class="task-list-wrap">${h.map(createCardHTML).join('')}</div>
+                    </div>
+                </div>`;
             } else {
                 const completed = filtered.filter(t => t.status === '완료');
                 if (completed.length === 0) container.innerHTML = `<div style="text-align:center; padding:3rem; color:var(--color-text-sub);">완료된 업무가 없습니다.</div>`;
@@ -1100,7 +1110,7 @@
         }
 
         /* =========================================
-           6. 관리자 제어판 로직 (🚨 백업/복원 기능 탑재)
+           6. 관리자 제어판 로직
            ========================================= */
         function initAdmin(container) {
             const db = getDB(); if(!db) return;
@@ -1178,7 +1188,6 @@
         document.body.addEventListener('click', async (e) => {
             const target = e.target;
             
-            // 🚨 수동 백업(다운로드) 기능
             if (target.id === 'btn-backup-db') {
                 const db = getDB();
                 if (!db) return alert("데이터베이스를 불러올 수 없습니다.");
@@ -1192,9 +1201,33 @@
                 return;
             }
             
-            // 🚨 수동 복원(업로드) 파일 선택창 열기
             if (target.id === 'btn-restore-db') {
                 document.getElementById('backup-file-input').click();
+                return;
+            }
+
+            // 🚨 일자별 정렬 버튼 로직
+            if (target.classList.contains('btn-sort-tasks') || target.closest('.btn-sort-tasks')) {
+                const btn = target.classList.contains('btn-sort-tasks') ? target : target.closest('.btn-sort-tasks');
+                const status = btn.dataset.status;
+                const db = getDB();
+                if (!db) return;
+                const uid = getCurrentUserId();
+
+                let targetTasks = db.tasks.filter(t => t.userId === uid && t.status === status);
+                let otherTasks = db.tasks.filter(t => !(t.userId === uid && t.status === status));
+
+                targetTasks.sort((a, b) => {
+                    if (!a.startDate && !b.startDate) return 0;
+                    if (!a.startDate) return 1;
+                    if (!b.startDate) return -1;
+                    return new Date(a.startDate) - new Date(b.startDate);
+                });
+
+                db.tasks = [...otherTasks, ...targetTasks];
+                saveDB(db);
+                renderDashList();
+                showToast(`[${status}] 업무가 시작일 기준으로 자동 정렬되었습니다.`);
                 return;
             }
 
