@@ -88,6 +88,7 @@
         .btn-icon { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--color-text-sub); transition: color 0.2s; padding: 0.25rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
         .btn-icon:hover { color: #EF4444; background: #FEE2E2; }
         
+        /* Textarea 다중 줄바꿈 지원 */
         textarea.input-text, textarea.inline-input { overflow-y: hidden; resize: none; box-sizing: border-box; font-family: inherit; line-height: 1.5; vertical-align: middle; word-break: keep-all; overflow-wrap: break-word; white-space: pre-wrap; width: 100%; }
         textarea.inline-input { min-height: 1.8rem; padding-top: 0.2rem; padding-bottom: 0.2rem; }
         
@@ -270,7 +271,6 @@
         </div>
     </div>
 
-    <!-- 🚨 완료 시 완료일 지정 모달 -->
     <div id="task-complete-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h2 style="margin-bottom: 1.5rem; font-weight: 800; color: var(--color-primary);">✅ 업무 완료 처리</h2>
@@ -401,7 +401,7 @@
         const firestoreDB = getFirestore(app);
 
         /* =========================================
-           1. DB 초기화 및 헬퍼 함수
+           1. DB 초기화 및 헬퍼 함수 (🚨 비상 락 적용됨)
            ========================================= */
         const DB_KEY = 'AppDB';
         const defaultDB = {
@@ -413,6 +413,7 @@
         
         let globalDB = null; 
         let isDBConnected = false; 
+        let saveDBTimeout = null; // 🚨 디바운싱 타이머 변수
 
         function getDB() { return globalDB; }
 
@@ -424,8 +425,13 @@
             }
             
             globalDB = data;
-            try { await setDoc(doc(firestoreDB, "WorkSystem", DB_KEY), data); } 
-            catch (e) { console.error("데이터 저장 중 오류:", e); showToast("데이터 클라우드 저장에 실패했습니다."); }
+            
+            // 🚨 연속된 덮어쓰기 역전(Race Condition)을 막기 위한 300ms 디바운싱 처리
+            if (saveDBTimeout) clearTimeout(saveDBTimeout);
+            saveDBTimeout = setTimeout(async () => {
+                try { await setDoc(doc(firestoreDB, "WorkSystem", DB_KEY), globalDB); } 
+                catch (e) { console.error("데이터 저장 중 오류:", e); showToast("데이터 클라우드 저장에 실패했습니다."); }
+            }, 300);
         }
 
         async function initDB() { 
@@ -542,11 +548,7 @@
         }
 
         function syncFutureGroupTitle(db, uid, currentMonth, syncGroupId, newTitle) {
-            const futureMonths = getInitializedFutureMonths(db, uid, currentMonth);
-            futureMonths.forEach(m => {
-                const targetGroup = db.monthlyChecklists.find(c => c.userId === uid && c.month === m && c.syncGroupId === syncGroupId);
-                if (targetGroup) targetGroup.title = newTitle;
-            });
+            getFutureMonthlyLists(db, uid, currentMonth).forEach(c => { if (c.syncGroupId === syncGroupId) c.title = newTitle; });
         }
 
         function syncFutureGroupDelete(db, uid, currentMonth, syncGroupId) {
@@ -708,7 +710,6 @@
         
         function createCardHTML(t) {
             if (!t.subItems) t.subItems = []; const isDone = t.status === '완료';
-            
             const showFooterAlways = (t.status === '진행중' || t.status === '완료');
             const hideBody = (!t.isOpen && !showFooterAlways) ? 'hidden' : '';
             const hideSub = !t.isOpen ? 'hidden' : '';
@@ -737,14 +738,13 @@
         function renderDashList() {
             const container = document.getElementById('task-list-container'); if(!container) return;
             const db = getDB(); 
-            if(!db) return; // 락 상태 방어
+            if(!db) return; 
             const uid = getCurrentUserId();
             const filtered = db.tasks.filter(t => t.userId === uid && (t.title.toLowerCase().includes(dashState.search.toLowerCase()) || t.category.toLowerCase().includes(dashState.search.toLowerCase())));
             
             if (dashState.tab === 'active') {
                 const p = filtered.filter(t => t.status === '대기'), i = filtered.filter(t => t.status === '진행중'), h = filtered.filter(t => t.status === '보류');
                 
-                // 🚨 진행일 기준 정렬 버튼 추가 (대기, 진행중, 보류)
                 container.innerHTML = `<div class="kanban-board">
                     <div class="kanban-col" data-status="대기">
                         <div class="col-title" style="color:var(--status-wait); display:flex; justify-content:space-between; width:100%;">
@@ -1510,6 +1510,7 @@
                     const sortedIds = currentItemNodes.map(node => Number(node.dataset.itemId));
                     list.items.sort((a, b) => sortedIds.indexOf(a.id) - sortedIds.indexOf(b.id));
                     saveDB(db);
+                    isMonthly ? renderMonthlyChecklist() : renderChecklist();
                 }
             } else if (dragType === 'card') {
                 const wrapClass = draggedItem.classList.contains('chk-card') ? '.chk-list-wrap' : '.task-list-wrap';
@@ -1532,13 +1533,32 @@
                             db.checklists = [...myLists, ...others];
                         }
                         saveDB(db);
+                        isMonthly ? renderMonthlyChecklist() : renderChecklist();
                     } else {
-                        const uid = getCurrentUserId(); const columnStatus = draggedItem.closest('.kanban-col') ? draggedItem.closest('.kanban-col').dataset.status : '완료';
+                        const uid = getCurrentUserId(); 
+                        const kanbanCol = draggedItem.closest('.kanban-col');
+                        const columnStatus = kanbanCol ? kanbanCol.dataset.status : '완료';
+                        const taskId = Number(draggedItem.dataset.id);
+                        const task = db.tasks.find(t => t.id === taskId);
+                        
+                        // 🚨 핵심 픽스 1: 드롭된 컬럼의 상태로 데이터 완벽 갱신 (보류->진행중 원복 버그 해결)
+                        if (task && task.status !== columnStatus) {
+                            task.status = columnStatus;
+                            const today = getTodayString();
+                            if ((columnStatus === '진행중' || columnStatus === '보류') && !task.startDate) task.startDate = today;
+                            if (columnStatus === '완료') {
+                                if (!task.endDate) task.endDate = today;
+                                if (!task.startDate) task.startDate = today;
+                            }
+                        }
+
                         let myTasks = db.tasks.filter(t => t.userId === uid && t.status === columnStatus);
                         myTasks.sort((a, b) => sortedIds.indexOf(a.id) - sortedIds.indexOf(b.id));
                         const othersTasks = db.tasks.filter(t => !(t.userId === uid && t.status === columnStatus));
                         db.tasks = [...myTasks, ...othersTasks];
+                        
                         saveDB(db);
+                        renderDashList(); // 🚨 UI 동기화 재렌더링
                     }
                 }
             } else if (dragType === 'memo') {
@@ -1570,6 +1590,7 @@
                     const sortedIds = currentSubNodes.map(node => Number(node.dataset.subId));
                     task.subItems.sort((a, b) => sortedIds.indexOf(a.id) - sortedIds.indexOf(b.id));
                     saveDB(db);
+                    renderDashList();
                 }
             }
             draggedItem.classList.remove('item-dragging', 'card-dragging', 'memo-dragging'); draggedItem = null; dragType = null;
@@ -1581,6 +1602,7 @@
            ----------------------------------------- */
         document.body.addEventListener('input', (e) => { 
             const target = e.target;
+            
             if (target.tagName === 'TEXTAREA') autoResizeTextarea(target);
             
             if (target.id === 'dash-search') { dashState.search = e.target.value; renderDashList(); } 
@@ -1626,7 +1648,6 @@
             const target = e.target; 
             const db = getDB();
             
-            // 🚨 복원 파일 업로드 처리 로직
             if (target.id === 'backup-file-input') {
                 const file = target.files[0];
                 if (!file) return;
@@ -1642,14 +1663,14 @@
                         const parsedData = JSON.parse(event.target.result);
                         if (!parsedData.users || !parsedData.settings) throw new Error("올바른 QuickWork 백업 파일 형식이 아닙니다.");
                         
-                        isDBConnected = true; // 복원(강제 덮어쓰기)을 위해 락 해제
+                        isDBConnected = true; 
                         await saveDB(parsedData);
                         alert("✅ 데이터 복원이 성공적으로 완료되었습니다.\n시스템을 다시 시작합니다.");
                         location.reload();
                     } catch (error) {
                         alert("파일을 읽는 중 오류가 발생했습니다: " + error.message);
                     }
-                    target.value = ''; // 초기화
+                    target.value = ''; 
                 };
                 reader.readAsText(file);
                 return;
