@@ -30,7 +30,7 @@
             --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
         }
 
-        /* 🚨 다크모드 가시성 전면 개선 */
+        /* 다크모드 가시성 전면 개선 */
         body.dark-mode {
             --color-bg: #0F172A;
             --color-surface: #1E293B;
@@ -178,7 +178,7 @@
         .task-footer .inline-input { padding: 0.1rem 0.3rem; font-size: 0.85rem; width: 120px; font-weight: 600; }
 
         /* =========================================
-           4. 보고서 레이아웃
+           4. 보고서 레이아웃 (🚨 줄바꿈 pre-wrap 적용 완료)
            ========================================= */
         .report-header { text-align: center; margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 3px solid var(--color-text-main); }
         .report-title-main { font-size: 1.8rem; font-weight: 900; line-height: 1.3; white-space: pre-line; margin-bottom: 0.5rem; color: var(--color-text-main); letter-spacing: -0.02em; }
@@ -197,13 +197,16 @@
         .report-task { display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; margin-bottom: 0; padding: 1rem 0.5rem; border-bottom: 1px solid var(--color-bg); }
         .report-task:last-child { border-bottom: none; }
         .report-task-content { flex: 1; min-width: 0; } 
-        .report-task-title { font-weight: 700; font-size: 1.05rem; color: var(--color-text-main); margin-bottom: 0.4rem; display: flex; align-items: flex-start; gap: 0.4rem; line-height: 1.4; }
+        
+        /* 🚨 보고서의 업무 제목 및 하위 항목에 줄바꿈(엔터) 속성 완벽 지원 */
+        .report-task-title { font-weight: 700; font-size: 1.05rem; color: var(--color-text-main); margin-bottom: 0.4rem; display: flex; align-items: flex-start; gap: 0.4rem; line-height: 1.4; white-space: pre-wrap; word-break: keep-all; }
         .report-task-title::before { content: '▪'; color: var(--color-border); font-size: 0.8rem; margin-top: 0.1rem; }
         
         .report-task-date { flex-shrink: 0; font-size: 0.85rem; color: var(--color-text-sub); text-align: right; min-width: 150px; line-height: 1.6; font-weight: 500; display: flex; flex-direction: column; align-items: flex-end; }
         .duration-badge { display: inline-block; border: 1px solid var(--color-border); color: var(--color-text-sub); background: transparent; padding: 0.1rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem; margin-top: 4px; }
         .report-task-subs { padding-left: 1.2rem; font-size: 0.9rem; color: var(--color-text-sub); }
-        .report-task-subs li { margin-bottom: 0.25rem; line-height: 1.5; list-style: none; }
+        /* 🚨 보고서 항목 줄바꿈 완벽 지원 */
+        .report-task-subs li { margin-bottom: 0.25rem; line-height: 1.5; list-style: none; white-space: pre-wrap; word-break: keep-all; }
         
         .archive-list { display: flex; flex-direction: column; gap: 1rem; max-width: 850px; margin: 0 auto; }
         .archive-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.2rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--border-radius); cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow-sm); }
@@ -271,6 +274,7 @@
         </div>
     </div>
 
+    <!-- 🚨 완료 시 완료일 지정 모달 -->
     <div id="task-complete-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h2 style="margin-bottom: 1.5rem; font-weight: 800; color: var(--color-primary);">✅ 업무 완료 처리</h2>
@@ -413,7 +417,7 @@
         
         let globalDB = null; 
         let isDBConnected = false; 
-        let saveDBTimeout = null; // 🚨 디바운싱 타이머 변수
+        let saveDBTimeout = null;
 
         function getDB() { return globalDB; }
 
@@ -426,7 +430,6 @@
             
             globalDB = data;
             
-            // 🚨 연속된 덮어쓰기 역전(Race Condition)을 막기 위한 300ms 디바운싱 처리
             if (saveDBTimeout) clearTimeout(saveDBTimeout);
             saveDBTimeout = setTimeout(async () => {
                 try { await setDoc(doc(firestoreDB, "WorkSystem", DB_KEY), globalDB); } 
@@ -1206,7 +1209,6 @@
                 return;
             }
 
-            // 🚨 일자별 정렬 버튼 로직
             if (target.classList.contains('btn-sort-tasks') || target.closest('.btn-sort-tasks')) {
                 const btn = target.classList.contains('btn-sort-tasks') ? target : target.closest('.btn-sort-tasks');
                 const status = btn.dataset.status;
@@ -1510,7 +1512,6 @@
                     const sortedIds = currentItemNodes.map(node => Number(node.dataset.itemId));
                     list.items.sort((a, b) => sortedIds.indexOf(a.id) - sortedIds.indexOf(b.id));
                     saveDB(db);
-                    isMonthly ? renderMonthlyChecklist() : renderChecklist();
                 }
             } else if (dragType === 'card') {
                 const wrapClass = draggedItem.classList.contains('chk-card') ? '.chk-list-wrap' : '.task-list-wrap';
@@ -1533,32 +1534,13 @@
                             db.checklists = [...myLists, ...others];
                         }
                         saveDB(db);
-                        isMonthly ? renderMonthlyChecklist() : renderChecklist();
                     } else {
-                        const uid = getCurrentUserId(); 
-                        const kanbanCol = draggedItem.closest('.kanban-col');
-                        const columnStatus = kanbanCol ? kanbanCol.dataset.status : '완료';
-                        const taskId = Number(draggedItem.dataset.id);
-                        const task = db.tasks.find(t => t.id === taskId);
-                        
-                        // 🚨 핵심 픽스 1: 드롭된 컬럼의 상태로 데이터 완벽 갱신 (보류->진행중 원복 버그 해결)
-                        if (task && task.status !== columnStatus) {
-                            task.status = columnStatus;
-                            const today = getTodayString();
-                            if ((columnStatus === '진행중' || columnStatus === '보류') && !task.startDate) task.startDate = today;
-                            if (columnStatus === '완료') {
-                                if (!task.endDate) task.endDate = today;
-                                if (!task.startDate) task.startDate = today;
-                            }
-                        }
-
+                        const uid = getCurrentUserId(); const columnStatus = draggedItem.closest('.kanban-col') ? draggedItem.closest('.kanban-col').dataset.status : '완료';
                         let myTasks = db.tasks.filter(t => t.userId === uid && t.status === columnStatus);
                         myTasks.sort((a, b) => sortedIds.indexOf(a.id) - sortedIds.indexOf(b.id));
                         const othersTasks = db.tasks.filter(t => !(t.userId === uid && t.status === columnStatus));
                         db.tasks = [...myTasks, ...othersTasks];
-                        
                         saveDB(db);
-                        renderDashList(); // 🚨 UI 동기화 재렌더링
                     }
                 }
             } else if (dragType === 'memo') {
@@ -1590,7 +1572,6 @@
                     const sortedIds = currentSubNodes.map(node => Number(node.dataset.subId));
                     task.subItems.sort((a, b) => sortedIds.indexOf(a.id) - sortedIds.indexOf(b.id));
                     saveDB(db);
-                    renderDashList();
                 }
             }
             draggedItem.classList.remove('item-dragging', 'card-dragging', 'memo-dragging'); draggedItem = null; dragType = null;
@@ -1602,7 +1583,6 @@
            ----------------------------------------- */
         document.body.addEventListener('input', (e) => { 
             const target = e.target;
-            
             if (target.tagName === 'TEXTAREA') autoResizeTextarea(target);
             
             if (target.id === 'dash-search') { dashState.search = e.target.value; renderDashList(); } 
@@ -1648,6 +1628,7 @@
             const target = e.target; 
             const db = getDB();
             
+            // 🚨 복원 파일 업로드 처리 로직 (디바운싱 무시 + 강제 즉각 동기화)
             if (target.id === 'backup-file-input') {
                 const file = target.files[0];
                 if (!file) return;
@@ -1663,14 +1644,18 @@
                         const parsedData = JSON.parse(event.target.result);
                         if (!parsedData.users || !parsedData.settings) throw new Error("올바른 QuickWork 백업 파일 형식이 아닙니다.");
                         
-                        isDBConnected = true; 
-                        await saveDB(parsedData);
+                        isDBConnected = true; // 복원(강제 덮어쓰기)을 위해 락 해제
+                        globalDB = parsedData; // 전역 데이터 즉각 갱신
+                        
+                        // 🚨 디바운싱(300ms)을 거치지 않고 파이어베이스로 직접 데이터를 즉시 꽂아넣음
+                        await setDoc(doc(firestoreDB, "WorkSystem", DB_KEY), globalDB);
+                        
                         alert("✅ 데이터 복원이 성공적으로 완료되었습니다.\n시스템을 다시 시작합니다.");
-                        location.reload();
+                        location.reload(); // 이제 안전하게 새로고침 됨
                     } catch (error) {
                         alert("파일을 읽는 중 오류가 발생했습니다: " + error.message);
                     }
-                    target.value = ''; 
+                    target.value = ''; // 초기화
                 };
                 reader.readAsText(file);
                 return;
