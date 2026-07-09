@@ -30,7 +30,6 @@
             --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
         }
 
-        /* 🚨 다크모드 가시성 전면 개선 */
         body.dark-mode {
             --color-bg: #0F172A;
             --color-surface: #1E293B;
@@ -178,7 +177,7 @@
         .task-footer .inline-input { padding: 0.1rem 0.3rem; font-size: 0.85rem; width: 120px; font-weight: 600; }
 
         /* =========================================
-           4. 보고서 레이아웃
+           4. 보고서 레이아웃 (줄바꿈 pre-wrap 지원)
            ========================================= */
         .report-header { text-align: center; margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 3px solid var(--color-text-main); }
         .report-title-main { font-size: 1.8rem; font-weight: 900; line-height: 1.3; white-space: pre-line; margin-bottom: 0.5rem; color: var(--color-text-main); letter-spacing: -0.02em; }
@@ -384,9 +383,9 @@
     </div>
 
     <script type="module">
-        /* 🚨 파이어베이스 연동 로직 (절대 수정 금지 - 보존) */
+        /* 🚨 실시간 엔진(onSnapshot) 및 조각 업데이트 엔진 임포트 */
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCAl6OzWJYAXoPBN7qAhMrwGFnesxjJ1V0",
@@ -401,83 +400,52 @@
         const firestoreDB = getFirestore(app);
 
         /* =========================================
-           1. DB 초기화 및 헬퍼 함수 (🚨 비상 락 및 덮어쓰기 방어 적용됨)
+           1. DB 초기화 (🚨 대공사 2부: tasks 분리 독립 및 마이그레이션)
            ========================================= */
         const DB_KEY = 'AppDB';
         const defaultDB = {
             users: [{ id: 'admin', pw: '1111', role: 'admin', status: 'approved', name: '최고관리자', group: '운영팀', menus: ['dashboard','report','checklist','monthly','admin'] }],
             groups: [{ id: 1, name: '운영팀' }, { id: 2, name: '개발팀' }, { id: 3, name: '영업팀' }],
             settings: { sysTitle: 'QuickWork', menuNames: { dashboard: '업무 대시보드', report: '업무 보고서', checklist: '업무 체크리스트', monthly: '매월 체크리스트', admin: '설정' }, notice: '새로운 업무 시스템에 오신 것을 환영합니다!' },
-            tasks: [], reports: [], checklists: [], monthlyChecklists: [], reportRemarks: {}
+            reports: [], checklists: [], monthlyChecklists: [], reportRemarks: {} // 🚨 tasks 제거됨 (독립 컬렉션으로 이사)
         };
         
         let globalDB = null; 
+        let globalTasks = []; // 🚨 실시간 감지용 독립 Tasks 배열
         let isDBConnected = false; 
-        let saveDBTimeout = null;
-        let localSyncTime = 0; 
 
         function getDB() { return globalDB; }
 
         async function saveDB(data) { 
-            if (!isDBConnected) {
-                console.error("🚨 DB 연결 오류 상태이므로 저장을 차단했습니다. (데이터 유실 방지)");
-                alert("현재 데이터베이스에 정상적으로 연결되지 않아 데이터 저장이 차단되었습니다.\n\n페이지를 새로고침 하시거나 관리자에게 문의하세요.");
-                return; 
-            }
-            
+            if (!isDBConnected) return; 
             globalDB = data;
-            
-            if (saveDBTimeout) clearTimeout(saveDBTimeout);
-            saveDBTimeout = setTimeout(async () => {
-                try { 
-                    // 🚨 1. 덮어쓰기 방지를 위한 서버 최신 상태 확인
-                    const docRef = doc(firestoreDB, "WorkSystem", DB_KEY);
-                    const docSnap = await getDoc(docRef);
-
-                    if (docSnap.exists()) {
-                        const serverDB = docSnap.data();
-                        if (serverDB.lastSyncTime && serverDB.lastSyncTime > localSyncTime) {
-                            alert("🚨 [데이터 충돌 감지]\n\n다른 사용자가 방금 데이터를 추가/수정했습니다. 현재 화면에서 저장할 경우 다른 사람의 데이터가 덮어씌워져 유실될 위험이 있습니다.\n\n저장을 중단합니다. [F5]를 눌러 최신 데이터로 새로고침 후 다시 작업해 주세요.");
-                            return; 
-                        }
-                    }
-
-                    // 🚨 2. 안전 확인 시 동기화 시간 갱신 후 저장
-                    globalDB.lastSyncTime = Date.now();
-                    localSyncTime = globalDB.lastSyncTime;
-
-                    await setDoc(docRef, globalDB); 
-                } 
-                catch (e) { console.error("데이터 저장 중 오류:", e); showToast("데이터 클라우드 저장에 실패했습니다."); }
-            }, 300);
+            try { await setDoc(doc(firestoreDB, "WorkSystem", DB_KEY), globalDB); } 
+            catch (e) { console.error("데이터 저장 오류:", e); }
         }
 
         async function initDB() { 
             try {
+                // 1. 기존 AppDB 불러오기
                 const docRef = doc(firestoreDB, "WorkSystem", DB_KEY);
                 const docSnap = await getDoc(docRef);
                 
                 if (docSnap.exists()) {
                     globalDB = docSnap.data(); 
                     isDBConnected = true; 
-                    localSyncTime = globalDB.lastSyncTime || Date.now();
                     
-                    if (!globalDB.users || globalDB.users.length === 0) globalDB.users = JSON.parse(JSON.stringify(defaultDB.users)); 
-                    
-                    if (!globalDB.settings) {
-                        globalDB.settings = JSON.parse(JSON.stringify(defaultDB.settings));
-                    } else {
-                        globalDB.settings.sysTitle = globalDB.settings.sysTitle || defaultDB.settings.sysTitle;
-                        if (!globalDB.settings.menuNames) globalDB.settings.menuNames = JSON.parse(JSON.stringify(defaultDB.settings.menuNames));
-                        else {
-                            globalDB.settings.menuNames.dashboard = globalDB.settings.menuNames.dashboard || defaultDB.settings.menuNames.dashboard;
-                            globalDB.settings.menuNames.report = globalDB.settings.menuNames.report || defaultDB.settings.menuNames.report;
-                            globalDB.settings.menuNames.checklist = globalDB.settings.menuNames.checklist || defaultDB.settings.menuNames.checklist;
-                            globalDB.settings.menuNames.monthly = globalDB.settings.menuNames.monthly || defaultDB.settings.menuNames.monthly;
-                            globalDB.settings.menuNames.admin = globalDB.settings.menuNames.admin || defaultDB.settings.menuNames.admin;
+                    // 🚨 [마이그레이션 엔진] 기존 AppDB에 갇혀있던 tasks 데이터를 독립 컬렉션으로 이사시킴
+                    if (globalDB.tasks && globalDB.tasks.length > 0) {
+                        for (let i = 0; i < globalDB.tasks.length; i++) {
+                            const t = globalDB.tasks[i];
+                            t.order = i; // 정렬 순서 보존
+                            await setDoc(doc(firestoreDB, "tasks", String(t.id)), t);
                         }
+                        globalDB.tasks = []; // 이사 완료 후 기존 방 비우기
+                        await saveDB(globalDB);
                     }
                     
+                    if (!globalDB.users || globalDB.users.length === 0) globalDB.users = JSON.parse(JSON.stringify(defaultDB.users)); 
+                    if (!globalDB.settings) globalDB.settings = JSON.parse(JSON.stringify(defaultDB.settings));
                     if (!globalDB.reportRemarks) globalDB.reportRemarks = {}; 
                     if (!globalDB.checklists) globalDB.checklists = []; 
                     if (!globalDB.monthlyChecklists) globalDB.monthlyChecklists = []; 
@@ -488,24 +456,30 @@
                         if (!g.syncGroupId) g.syncGroupId = g.originGroupId || g.id;
                         g.items.forEach(i => { if (!i.syncItemId) i.syncItemId = i.originItemId || i.id; });
                     });
-
-                    globalDB.users.forEach(u => {
-                        if (!u.menus) u.menus = ['dashboard', 'report', 'checklist', 'monthly'];
-                        if (!u.menus.includes('monthly')) u.menus.push('monthly');
-                        if (u.role === 'admin' && !u.menus.includes('admin')) u.menus.push('admin');
-                        if (!u.group) u.group = '운영팀';
-                    });
-                    
                 } else {
                     globalDB = JSON.parse(JSON.stringify(defaultDB));
                     globalDB.monthlyChecklistInit = {};
-                    globalDB.lastSyncTime = Date.now();
                     isDBConnected = true; 
                     await saveDB(globalDB);
                 }
+
+                // 🚨 2. 독립된 tasks 컬렉션에 실시간 감시망(onSnapshot) 부착
+                onSnapshot(collection(firestoreDB, "tasks"), (snapshot) => {
+                    globalTasks = [];
+                    snapshot.forEach((doc) => globalTasks.push(doc.data()));
+                    
+                    // order 필드 기준으로 정렬하여 순서 유지
+                    globalTasks.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+                    // 대시보드 화면에 있을 때만 즉각 새로고침 리렌더링
+                    const activeNav = document.querySelector('.nav-item.active');
+                    if (activeNav && activeNav.dataset.target === 'dashboard') {
+                        renderDashList();
+                    }
+                });
+
             } catch (e) {
                 console.error("Firebase 로딩 오류:", e);
-                alert("데이터베이스 접속에 실패했습니다.\n안전을 위해 시스템이 '읽기 전용'으로 작동하며 저장이 차단됩니다.");
                 globalDB = JSON.parse(JSON.stringify(defaultDB)); 
                 globalDB.monthlyChecklistInit = {};
                 isDBConnected = false; 
@@ -717,7 +691,7 @@
         }
 
         /* =========================================
-           3. 대시보드 로직
+           3. 대시보드 로직 (🚨 실시간 globalTasks 적용)
            ========================================= */
         let dashState = { tab: 'active', search: '' };
         function initDashboard(container) {
@@ -757,10 +731,10 @@
         }
         function renderDashList() {
             const container = document.getElementById('task-list-container'); if(!container) return;
-            const db = getDB(); 
-            if(!db) return; 
             const uid = getCurrentUserId();
-            const filtered = db.tasks.filter(t => t.userId === uid && (t.title.toLowerCase().includes(dashState.search.toLowerCase()) || t.category.toLowerCase().includes(dashState.search.toLowerCase())));
+            
+            // 🚨 독립된 globalTasks 사용
+            const filtered = globalTasks.filter(t => t.userId === uid && (t.title.toLowerCase().includes(dashState.search.toLowerCase()) || t.category.toLowerCase().includes(dashState.search.toLowerCase())));
             
             if (dashState.tab === 'active') {
                 const p = filtered.filter(t => t.status === '대기'), i = filtered.filter(t => t.status === '진행중'), h = filtered.filter(t => t.status === '보류');
@@ -797,7 +771,7 @@
         }
 
         /* =========================================
-           4. 보고서 로직
+           4. 보고서 로직 (🚨 globalTasks 연동 반영)
            ========================================= */
         let reportState = { tab: 'weekly', selectedWeek: '', selectedMonth: '' };
         function generateWeeklyOptions() {
@@ -844,7 +818,7 @@
             }
             const pStartStr = toLocalISOString(periodStart), pEndStr = toLocalISOString(periodEnd);
             
-            let targetTasks = db.tasks.filter(t => {
+            let targetTasks = globalTasks.filter(t => { // 🚨 globalTasks 적용
                 if (t.userId !== uid) return false;
                 if (t.status === '대기' || t.status === '보류' || !t.startDate) return false;
                 const end = (t.status === '완료' && t.endDate) ? t.endDate : '9999-12-31';
@@ -1211,7 +1185,11 @@
             if (target.id === 'btn-backup-db') {
                 const db = getDB();
                 if (!db) return alert("데이터베이스를 불러올 수 없습니다.");
-                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+                
+                // 백업본 생성 시, 실시간 감시 중인 globalTasks도 포함시켜 다운로드
+                const backupData = { ...db, tasks: globalTasks };
+                
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
                 const downloadAnchorNode = document.createElement('a');
                 downloadAnchorNode.setAttribute("href", dataStr);
                 downloadAnchorNode.setAttribute("download", "quickwork_backup_" + getTodayString() + ".json");
@@ -1229,23 +1207,22 @@
             if (target.classList.contains('btn-sort-tasks') || target.closest('.btn-sort-tasks')) {
                 const btn = target.classList.contains('btn-sort-tasks') ? target : target.closest('.btn-sort-tasks');
                 const status = btn.dataset.status;
-                const db = getDB();
-                if (!db) return;
                 const uid = getCurrentUserId();
 
-                let targetTasks = db.tasks.filter(t => t.userId === uid && t.status === status);
-                let otherTasks = db.tasks.filter(t => !(t.userId === uid && t.status === status));
-
+                let targetTasks = globalTasks.filter(t => t.userId === uid && t.status === status);
+                
                 targetTasks.sort((a, b) => {
                     if (!a.startDate && !b.startDate) return 0;
                     if (!a.startDate) return 1;
                     if (!b.startDate) return -1;
                     return new Date(a.startDate) - new Date(b.startDate);
                 });
-
-                db.tasks = [...otherTasks, ...targetTasks];
-                saveDB(db);
-                renderDashList();
+                
+                // 🚨 실시간 조각 업데이트: 정렬된 순서대로 order 값 갱신
+                for (let i = 0; i < targetTasks.length; i++) {
+                    await updateDoc(doc(firestoreDB, "tasks", String(targetTasks[i].id)), { order: i });
+                }
+                
                 showToast(`[${status}] 업무가 시작일 기준으로 자동 정렬되었습니다.`);
                 return;
             }
@@ -1271,9 +1248,14 @@
                 if ((status === '진행중' || status === '보류' || status === '완료') && !startDate) startDate = today;
                 if (status === '완료' && !endDate) endDate = today;
 
-                const db = getDB(), uid = getCurrentUserId(); 
-                db.tasks.unshift({ id: Date.now(), userId: uid, category: category, title: title, status: status, startDate: startDate, endDate: endDate, subItems: [], isOpen: true }); 
-                saveDB(db); document.getElementById('task-add-modal').classList.add('hidden'); dashState.tab = (status === '완료') ? 'completed' : 'active'; initDashboard(document.getElementById('content-area'));
+                const uid = getCurrentUserId(); 
+                const newId = Date.now();
+                const newTask = { id: newId, userId: uid, category: category, title: title, status: status, startDate: startDate, endDate: endDate, subItems: [], isOpen: true, order: 0 };
+                
+                // 🚨 실시간 조각 추가 (add task)
+                await setDoc(doc(firestoreDB, "tasks", String(newId)), newTask);
+                
+                document.getElementById('task-add-modal').classList.add('hidden'); dashState.tab = (status === '완료') ? 'completed' : 'active';
             }
             
             if (target.id === 'btn-cancel-complete') {
@@ -1281,53 +1263,53 @@
             }
             if (target.id === 'btn-confirm-complete') {
                 const taskId = Number(document.getElementById('task-complete-modal').dataset.taskId);
-                const db = getDB();
-                const t = db.tasks.find(x => x.id === taskId);
+                const t = globalTasks.find(x => x.id === taskId);
                 if(t) {
                     const dateVal = document.getElementById('complete-task-date').value || getTodayString();
                     t.endDate = dateVal;
                     if(!t.startDate) t.startDate = dateVal;
-                    t.status = '완료';
-                    saveDB(db);
-                    renderDashList();
+                    
+                    // 🚨 실시간 조각 상태 업데이트 (complete task)
+                    await updateDoc(doc(firestoreDB, "tasks", String(taskId)), { 
+                        status: '완료', 
+                        endDate: t.endDate, 
+                        startDate: t.startDate 
+                    });
                 }
                 document.getElementById('task-complete-modal').classList.add('hidden');
             }
 
             if (target.classList.contains('btn-toggle') && target.closest('.task-card')) { 
-                const c = target.closest('.task-card'), db = getDB(), t = db.tasks.find(x=>x.id===Number(c.dataset.id)); 
-                t.isOpen=!t.isOpen; 
-                saveDB(db); 
-                target.textContent=t.isOpen?'▼':'▶'; 
-                
-                const body = c.querySelector('.task-body');
-                const subWrap = c.querySelector('.sub-items-wrap');
-                const footer = c.querySelector('.task-footer');
-                const showFooterAlways = (t.status === '진행중' || t.status === '완료');
-                
-                if (t.isOpen) {
-                    body.classList.remove('hidden');
-                    subWrap.classList.remove('hidden');
-                    footer.classList.remove('hidden');
-                    requestAnimationFrame(() => c.querySelectorAll('textarea').forEach(autoResizeTextarea));
-                } else {
-                    subWrap.classList.add('hidden');
-                    if (showFooterAlways) {
-                        body.classList.remove('hidden'); 
-                        footer.classList.remove('hidden'); 
-                    } else {
-                        body.classList.add('hidden'); 
-                        footer.classList.add('hidden');
-                    }
+                const c = target.closest('.task-card'), t = globalTasks.find(x=>x.id===Number(c.dataset.id)); 
+                if(t) {
+                    await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { isOpen: !t.isOpen });
                 }
             }
 
-            if (target.classList.contains('btn-add-sub') && !target.classList.contains('btn-add-chk-item')) { const db = getDB(), t = db.tasks.find(x=>x.id===Number(target.closest('.task-card').dataset.id)); t.subItems.push({id:Date.now(), text:''}); saveDB(db); renderDashList(); }
-            if (target.classList.contains('btn-del-sub')) { const db = getDB(), t = db.tasks.find(x=>x.id===Number(target.closest('.task-card').dataset.id)); t.subItems=t.subItems.filter(s=>s.id!==Number(target.closest('.sub-item-row').dataset.subId)); saveDB(db); renderDashList(); }
-            if (target.classList.contains('btn-delete') && !target.classList.contains('btn-delete-report')) { if(confirm('삭제?')){const db=getDB(); db.tasks=db.tasks.filter(t=>t.id!==Number(target.closest('.task-card').dataset.id)); saveDB(db); renderDashList();} }
-            if (target.classList.contains('tab-btn') && !target.classList.contains('report-tab')) { dashState.tab = target.dataset.tab; initDashboard(document.getElementById('content-area')); }
+            if (target.classList.contains('btn-add-sub') && !target.classList.contains('btn-add-chk-item')) { 
+                const t = globalTasks.find(x=>x.id===Number(target.closest('.task-card').dataset.id)); 
+                if(t) {
+                    const newSub = [...t.subItems, {id:Date.now(), text:''}];
+                    await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { subItems: newSub });
+                }
+            }
+            if (target.classList.contains('btn-del-sub')) { 
+                const t = globalTasks.find(x=>x.id===Number(target.closest('.task-card').dataset.id)); 
+                if(t) {
+                    const filteredSub = t.subItems.filter(s=>s.id!==Number(target.closest('.sub-item-row').dataset.subId));
+                    await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { subItems: filteredSub });
+                }
+            }
+            if (target.classList.contains('btn-delete') && !target.classList.contains('btn-delete-report')) { 
+                if(confirm('삭제?')){
+                    const taskId = target.closest('.task-card').dataset.id;
+                    await deleteDoc(doc(firestoreDB, "tasks", String(taskId)));
+                } 
+            }
             
+            if (target.classList.contains('tab-btn') && !target.classList.contains('report-tab')) { dashState.tab = target.dataset.tab; initDashboard(document.getElementById('content-area')); }
             if (target.classList.contains('report-tab')) { reportState.tab = target.dataset.tab; initReport(document.getElementById('content-area')); }
+            
             if (target.id === 'btn-save-report') { const p = document.getElementById('current-report-paper'); p.querySelectorAll('input, textarea').forEach(i=>i.setAttribute('value',i.value)); p.querySelectorAll('textarea').forEach(i=>i.innerHTML = i.value); const db=getDB(),{title}=generateReportHTML(reportState.tab), uid=getCurrentUserId(); db.reports.push({id:Date.now(), userId: uid, type:reportState.tab, title, html:p.innerHTML}); saveDB(db); alert('저장완료!'); reportState.tab='archive'; initReport(document.getElementById('content-area')); }
             if (target.classList.contains('btn-add-remark')) { const rKey=target.closest('.report-remarks-list').dataset.remarkKey, db=getDB(), uid=getCurrentUserId(); if(!db.reportRemarks[rKey]) db.reportRemarks[rKey] = []; db.reportRemarks[rKey].push({id:Date.now(), userId: uid, text:''}); saveDB(db); initReport(document.getElementById('content-area')); }
             if (target.classList.contains('btn-del-remark')) { const rKey=target.closest('.report-remarks-list').dataset.remarkKey, subId=Number(target.closest('.sub-item-row').dataset.subId), db=getDB(); db.reportRemarks[rKey]=db.reportRemarks[rKey].filter(r=>r.id!==subId); saveDB(db); initReport(document.getElementById('content-area')); }
@@ -1515,7 +1497,7 @@
             }
         });
         
-        document.addEventListener('drop', (e) => {
+        document.addEventListener('drop', async (e) => {
             if (!draggedItem) return; e.preventDefault(); stopAutoScroll();
             const db = getDB();
             
@@ -1534,9 +1516,11 @@
                 const wrapClass = draggedItem.classList.contains('chk-card') ? '.chk-list-wrap' : '.task-list-wrap';
                 const cardClass = draggedItem.classList.contains('chk-card') ? '.chk-card' : '.task-card';
                 const containerWrap = draggedItem.closest(wrapClass);
+                
                 if(containerWrap) {
                     const currentCardNodes = Array.from(containerWrap.querySelectorAll(cardClass));
                     const sortedIds = currentCardNodes.map(node => Number(node.dataset.id || node.dataset.chkId));
+                    
                     if (draggedItem.classList.contains('chk-card')) {
                         const isMonthly = draggedItem.dataset.isMonthly === 'true';
                         const uid = getCurrentUserId();
@@ -1556,25 +1540,24 @@
                         const kanbanCol = draggedItem.closest('.kanban-col');
                         const columnStatus = kanbanCol ? kanbanCol.dataset.status : '완료';
                         const taskId = Number(draggedItem.dataset.id);
-                        const task = db.tasks.find(t => t.id === taskId);
                         
-                        if (task && task.status !== columnStatus) {
-                            task.status = columnStatus;
+                        // 🚨 실시간 조각 업데이트: 드래그 앤 드롭 이동 시 개별 updateDoc 사용
+                        const taskToUpdate = globalTasks.find(t => t.id === taskId);
+                        if (taskToUpdate && taskToUpdate.status !== columnStatus) {
                             const today = getTodayString();
-                            if ((columnStatus === '진행중' || columnStatus === '보류') && !task.startDate) task.startDate = today;
+                            let updatePayload = { status: columnStatus };
+                            if ((columnStatus === '진행중' || columnStatus === '보류') && !taskToUpdate.startDate) updatePayload.startDate = today;
                             if (columnStatus === '완료') {
-                                if (!task.endDate) task.endDate = today;
-                                if (!task.startDate) task.startDate = today;
+                                if (!taskToUpdate.endDate) updatePayload.endDate = today;
+                                if (!taskToUpdate.startDate) updatePayload.startDate = today;
                             }
+                            await updateDoc(doc(firestoreDB, "tasks", String(taskId)), updatePayload);
                         }
 
-                        let myTasks = db.tasks.filter(t => t.userId === uid && t.status === columnStatus);
-                        myTasks.sort((a, b) => sortedIds.indexOf(a.id) - sortedIds.indexOf(b.id));
-                        const othersTasks = db.tasks.filter(t => !(t.userId === uid && t.status === columnStatus));
-                        db.tasks = [...myTasks, ...othersTasks];
-                        
-                        saveDB(db);
-                        renderDashList();
+                        // 순서(Order) 개별 업데이트
+                        for (let i = 0; i < sortedIds.length; i++) {
+                            await updateDoc(doc(firestoreDB, "tasks", String(sortedIds[i])), { order: i });
+                        }
                     }
                 }
             } else if (dragType === 'memo') {
@@ -1601,12 +1584,16 @@
                 const taskCard = draggedItem.closest('.task-card');
                 if(taskCard) {
                     const taskId = Number(taskCard.dataset.id);
-                    const task = db.tasks.find(t => t.id === taskId);
-                    const currentSubNodes = Array.from(taskCard.querySelectorAll('.sub-item-row'));
-                    const sortedIds = currentSubNodes.map(node => Number(node.dataset.subId));
-                    task.subItems.sort((a, b) => sortedIds.indexOf(a.id) - sortedIds.indexOf(b.id));
-                    saveDB(db);
-                    renderDashList();
+                    const task = globalTasks.find(t => t.id === taskId);
+                    if(task) {
+                        const currentSubNodes = Array.from(taskCard.querySelectorAll('.sub-item-row'));
+                        const sortedIds = currentSubNodes.map(node => Number(node.dataset.subId));
+                        
+                        const newSubItems = [...task.subItems];
+                        newSubItems.sort((a, b) => sortedIds.indexOf(a.id) - sortedIds.indexOf(b.id));
+                        
+                        await updateDoc(doc(firestoreDB, "tasks", String(taskId)), { subItems: newSubItems });
+                    }
                 }
             }
             draggedItem.classList.remove('item-dragging', 'card-dragging', 'memo-dragging'); draggedItem = null; dragType = null;
@@ -1641,10 +1628,42 @@
             }
         });
 
-        document.body.addEventListener('focusout', (e) => {
+        document.body.addEventListener('focusout', async (e) => {
             const target = e.target;
+            const db = getDB();
+            
+            // 🚨 실시간 조각 업데이트: 포커스가 벗어날 때 파이어베이스 Task 컬렉션에 핀포인트 저장
+            const taskCard = target.closest('.task-card');
+            if (taskCard) {
+                const taskId = taskCard.dataset.id;
+                const t = globalTasks.find(x => x.id === Number(taskId));
+                if(t) {
+                    let updatePayload = {};
+                    let shouldUpdate = false;
+                    
+                    if(target.classList.contains('task-category') && t.category !== target.value) { updatePayload.category = target.value; shouldUpdate = true; }
+                    if(target.classList.contains('task-title') && t.title !== target.value) { updatePayload.title = target.value; shouldUpdate = true; }
+                    if(target.classList.contains('task-start') && t.startDate !== target.value) { updatePayload.startDate = target.value; shouldUpdate = true; }
+                    if(target.classList.contains('task-end') && t.endDate !== target.value) { updatePayload.endDate = target.value; shouldUpdate = true; }
+                    
+                    if(target.classList.contains('sub-item-text')) {
+                        const subId = Number(target.closest('.sub-item-row').dataset.subId);
+                        const s = t.subItems.find(x => x.id === subId);
+                        if(s && s.text !== target.value) {
+                            s.text = target.value;
+                            updatePayload.subItems = t.subItems;
+                            shouldUpdate = true;
+                        }
+                    }
+                    
+                    if(shouldUpdate) {
+                        await updateDoc(doc(firestoreDB, "tasks", String(taskId)), updatePayload);
+                    }
+                }
+            }
+
             if (target.classList.contains('chk-title') || target.classList.contains('chk-text') || target.classList.contains('chk-memo')) {
-                const db = getDB(), uid = getCurrentUserId(), chkCard = target.closest('.chk-card');
+                const uid = getCurrentUserId(), chkCard = target.closest('.chk-card');
                 if (chkCard && chkCard.dataset.isMonthly === 'true') {
                     const list = db.monthlyChecklists.find(c => c.id === Number(chkCard.dataset.chkId));
                     if (list) {
@@ -1663,7 +1682,7 @@
             const target = e.target; 
             const db = getDB();
             
-            // 🚨 복원 파일 업로드 처리 로직 (디바운싱 무시 + 강제 즉각 동기화)
+            // 🚨 복원 파일 업로드 처리
             if (target.id === 'backup-file-input') {
                 const file = target.files[0];
                 if (!file) return;
@@ -1680,13 +1699,20 @@
                         if (!parsedData.users || !parsedData.settings) throw new Error("올바른 QuickWork 백업 파일 형식이 아닙니다.");
                         
                         isDBConnected = true; 
-                        globalDB = parsedData; 
                         
-                        // 🚨 디바운싱 없이 즉시 파이어베이스에 꽂아넣기
-                        await setDoc(doc(firestoreDB, "WorkSystem", DB_KEY), globalDB);
+                        // 복원 시 tasks 배열이 파일에 들어있다면 다시 컬렉션으로 복구
+                        if (parsedData.tasks && parsedData.tasks.length > 0) {
+                            for (let t of parsedData.tasks) {
+                                await setDoc(doc(firestoreDB, "tasks", String(t.id)), t);
+                            }
+                        }
+                        
+                        parsedData.tasks = []; // 안전하게 비움
+                        parsedData.lastSyncTime = Date.now();
+                        await setDoc(doc(firestoreDB, "WorkSystem", DB_KEY), parsedData);
                         
                         alert("✅ 데이터 복원이 성공적으로 완료되었습니다.\n시스템을 다시 시작합니다.");
-                        location.reload(); // 이제 안전하게 새로고침 됨
+                        location.reload(); 
                     } catch (error) {
                         alert("파일을 읽는 중 오류가 발생했습니다: " + error.message);
                     }
@@ -1697,33 +1723,30 @@
             }
             
             const c=target.closest('.task-card'); 
-            if(c){
-                const t=db.tasks.find(x=>x.id===Number(c.dataset.id)); 
+            if(c && target.classList.contains('task-status')){
+                const taskId = Number(c.dataset.id);
+                const t = globalTasks.find(x => x.id === taskId);
+                
                 if(t){
-                    if(target.classList.contains('task-category'))t.category=target.value; 
-                    if(target.classList.contains('task-title'))t.title=target.value; 
-                    if(target.classList.contains('task-start'))t.startDate=target.value; 
-                    if(target.classList.contains('task-end'))t.endDate=target.value; 
-                    if(target.classList.contains('sub-item-text')){const s=t.subItems.find(x=>x.id===Number(target.closest('.sub-item-row').dataset.subId));if(s)s.text=target.value;} 
-                    if(target.classList.contains('task-status')){
-                        const n=target.value, today=getTodayString();
-                        
-                        if(n === '완료') {
-                            target.value = t.status; 
-                            document.getElementById('complete-task-date').value = t.endDate || today;
-                            document.getElementById('task-complete-modal').dataset.taskId = t.id;
-                            document.getElementById('task-complete-modal').classList.remove('hidden');
-                            return;
-                        }
-                        
-                        if((n === '진행중' || n === '보류') && !t.startDate) t.startDate = today;
-                        t.status = n;
-                        saveDB(db);
-                        renderDashList();
+                    const n=target.value, today=getTodayString();
+                    
+                    if(n === '완료') {
+                        target.value = t.status; 
+                        document.getElementById('complete-task-date').value = t.endDate || today;
+                        document.getElementById('task-complete-modal').dataset.taskId = t.id;
+                        document.getElementById('task-complete-modal').classList.remove('hidden');
                         return;
                     }
+                    
+                    let updatePayload = { status: n };
+                    if((n === '진행중' || n === '보류') && !t.startDate) updatePayload.startDate = today;
+                    
+                    // 🚨 실시간 조각 업데이트
+                    await updateDoc(doc(firestoreDB, "tasks", String(taskId)), updatePayload);
+                    return;
                 }
             }
+            
             if(target.id==='select-weekly'){reportState.selectedWeek=target.value;renderReportContent();} if(target.id==='select-monthly'){reportState.selectedMonth=target.value;renderReportContent();}
             if(target.classList.contains('remark-text')){const r=db.reportRemarks[target.closest('.report-remarks-list').dataset.remarkKey].find(x=>x.id===Number(target.closest('.sub-item-row').dataset.subId));if(r){r.text=target.value;target.setAttribute('value',target.value);}}
             
