@@ -87,7 +87,6 @@
         .btn-icon { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--color-text-sub); transition: color 0.2s; padding: 0.25rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
         .btn-icon:hover { color: #EF4444; background: #FEE2E2; }
         
-        /* Textarea 다중 줄바꿈 지원 */
         textarea.input-text, textarea.inline-input { overflow-y: hidden; resize: none; box-sizing: border-box; font-family: inherit; line-height: 1.5; vertical-align: middle; word-break: keep-all; overflow-wrap: break-word; white-space: pre-wrap; width: 100%; }
         textarea.inline-input { min-height: 1.8rem; padding-top: 0.2rem; padding-bottom: 0.2rem; }
         
@@ -400,18 +399,24 @@
         const firestoreDB = getFirestore(app);
 
         /* =========================================
-           1. DB 초기화 (🚨 대공사 2부: tasks 분리 독립 및 마이그레이션)
+           1. DB 초기화 (🚨 대공사 3부: 모든 데이터 컬렉션 독립 & 마이그레이션)
            ========================================= */
         const DB_KEY = 'AppDB';
         const defaultDB = {
             users: [{ id: 'admin', pw: '1111', role: 'admin', status: 'approved', name: '최고관리자', group: '운영팀', menus: ['dashboard','report','checklist','monthly','admin'] }],
             groups: [{ id: 1, name: '운영팀' }, { id: 2, name: '개발팀' }, { id: 3, name: '영업팀' }],
-            settings: { sysTitle: 'QuickWork', menuNames: { dashboard: '업무 대시보드', report: '업무 보고서', checklist: '업무 체크리스트', monthly: '매월 체크리스트', admin: '설정' }, notice: '새로운 업무 시스템에 오신 것을 환영합니다!' },
-            reports: [], checklists: [], monthlyChecklists: [], reportRemarks: {} // 🚨 tasks 제거됨 (독립 컬렉션으로 이사)
+            settings: { sysTitle: 'QuickWork', menuNames: { dashboard: '업무 대시보드', report: '업무 보고서', checklist: '업무 체크리스트', monthly: '매월 체크리스트', admin: '설정' }, notice: '새로운 업무 시스템에 오신 것을 환영합니다!' }
         };
         
         let globalDB = null; 
-        let globalTasks = []; // 🚨 실시간 감지용 독립 Tasks 배열
+        
+        // 🚨 실시간 감시용 전역 배열들 (모든 데이터가 쪼개져서 관리됨)
+        let globalTasks = []; 
+        let globalChecklists = [];
+        let globalMonthlyChecklists = [];
+        let globalReports = [];
+        let globalReportRemarks = {};
+        
         let isDBConnected = false; 
 
         function getDB() { return globalDB; }
@@ -423,9 +428,38 @@
             catch (e) { console.error("데이터 저장 오류:", e); }
         }
 
+        /* 🚨 실시간 업데이트 발생 시 화면 다시 그리기 (스마트 렌더링) */
+        function triggerRefreshIfActive(targetMenu) {
+            const activeNav = document.querySelector('.nav-item.active');
+            if (!activeNav) return;
+            
+            if (activeNav.dataset.target === targetMenu) {
+                // 사용자가 타자를 치는 중이면 화면 갱신 보류
+                const activeTag = document.activeElement ? document.activeElement.tagName : '';
+                if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') {
+                    window.pendingRealtimeUpdate = true;
+                    // 알림이 너무 자주 뜨지 않게 조절
+                    if(!window.toastTimeout) {
+                        showToast("💡 다른 유저가 업데이트했습니다. (입력 완료 시 반영)");
+                        window.toastTimeout = setTimeout(()=> { window.toastTimeout = null; }, 3000);
+                    }
+                } else {
+                    refreshCurrentView(targetMenu);
+                }
+            }
+        }
+
+        function refreshCurrentView(target) {
+            if (target === 'dashboard') renderDashList();
+            else if (target === 'report') { if (reportState.tab === 'archive') renderArchive(document.getElementById('report-content-area')); else renderReportContent(); }
+            else if (target === 'checklist') renderChecklist();
+            else if (target === 'monthly') renderMonthlyChecklist();
+            else if (target === 'admin') initAdmin(document.getElementById('content-area'));
+        }
+
         async function initDB() { 
             try {
-                // 1. 기존 AppDB 불러오기
+                // 1. 시스템 뼈대(유저, 설정) 불러오기 및 전체 마이그레이션
                 const docRef = doc(firestoreDB, "WorkSystem", DB_KEY);
                 const docSnap = await getDoc(docRef);
                 
@@ -433,28 +467,43 @@
                     globalDB = docSnap.data(); 
                     isDBConnected = true; 
                     
-                    // 🚨 [마이그레이션 엔진] 기존 AppDB에 갇혀있던 tasks 데이터를 독립 컬렉션으로 이사시킴
+                    let needsAppDBSave = false;
+
+                    // 🚨 [마이그레이션 엔진] AppDB에 갇혀있던 모든 데이터를 5개의 독립된 컬렉션으로 분가(이사)시킴
                     if (globalDB.tasks && globalDB.tasks.length > 0) {
-                        for (let i = 0; i < globalDB.tasks.length; i++) {
-                            const t = globalDB.tasks[i];
-                            t.order = i; // 정렬 순서 보존
-                            await setDoc(doc(firestoreDB, "tasks", String(t.id)), t);
-                        }
-                        globalDB.tasks = []; // 이사 완료 후 기존 방 비우기
-                        await saveDB(globalDB);
+                        for (let i=0; i<globalDB.tasks.length; i++) { const t = globalDB.tasks[i]; t.order = i; await setDoc(doc(firestoreDB, "tasks", String(t.id)), t); }
+                        globalDB.tasks = []; needsAppDBSave = true;
+                    }
+                    if (globalDB.checklists && globalDB.checklists.length > 0) {
+                        for (let c of globalDB.checklists) { await setDoc(doc(firestoreDB, "checklists", String(c.id)), c); }
+                        globalDB.checklists = []; needsAppDBSave = true;
+                    }
+                    if (globalDB.monthlyChecklists && globalDB.monthlyChecklists.length > 0) {
+                        for (let c of globalDB.monthlyChecklists) { await setDoc(doc(firestoreDB, "monthlyChecklists", String(c.id)), c); }
+                        globalDB.monthlyChecklists = []; needsAppDBSave = true;
+                    }
+                    if (globalDB.reports && globalDB.reports.length > 0) {
+                        for (let r of globalDB.reports) { await setDoc(doc(firestoreDB, "reports", String(r.id)), r); }
+                        globalDB.reports = []; needsAppDBSave = true;
+                    }
+                    if (globalDB.reportRemarks && Object.keys(globalDB.reportRemarks).length > 0) {
+                        for (let [key, arr] of Object.entries(globalDB.reportRemarks)) { await setDoc(doc(firestoreDB, "reportRemarks", key), { remarks: arr }); }
+                        globalDB.reportRemarks = {}; needsAppDBSave = true;
                     }
                     
+                    if (needsAppDBSave) await saveDB(globalDB); // 텅 빈 집(AppDB) 저장
+
+                    // 기본값 땜빵
                     if (!globalDB.users || globalDB.users.length === 0) globalDB.users = JSON.parse(JSON.stringify(defaultDB.users)); 
                     if (!globalDB.settings) globalDB.settings = JSON.parse(JSON.stringify(defaultDB.settings));
-                    if (!globalDB.reportRemarks) globalDB.reportRemarks = {}; 
-                    if (!globalDB.checklists) globalDB.checklists = []; 
-                    if (!globalDB.monthlyChecklists) globalDB.monthlyChecklists = []; 
                     if (!globalDB.monthlyChecklistInit) globalDB.monthlyChecklistInit = {}; 
                     if (!globalDB.groups) globalDB.groups = defaultDB.groups;
                     
-                    globalDB.monthlyChecklists.forEach(g => {
-                        if (!g.syncGroupId) g.syncGroupId = g.originGroupId || g.id;
-                        g.items.forEach(i => { if (!i.syncItemId) i.syncItemId = i.originItemId || i.id; });
+                    globalDB.users.forEach(u => {
+                        if (!u.menus) u.menus = ['dashboard', 'report', 'checklist', 'monthly'];
+                        if (!u.menus.includes('monthly')) u.menus.push('monthly');
+                        if (u.role === 'admin' && !u.menus.includes('admin')) u.menus.push('admin');
+                        if (!u.group) u.group = '운영팀';
                     });
                 } else {
                     globalDB = JSON.parse(JSON.stringify(defaultDB));
@@ -463,19 +512,36 @@
                     await saveDB(globalDB);
                 }
 
-                // 🚨 2. 독립된 tasks 컬렉션에 실시간 감시망(onSnapshot) 부착
+                // 🚨 2. 모든 컬렉션에 실시간 감시망(onSnapshot) 부착 완료!
                 onSnapshot(collection(firestoreDB, "tasks"), (snapshot) => {
-                    globalTasks = [];
-                    snapshot.forEach((doc) => globalTasks.push(doc.data()));
-                    
-                    // order 필드 기준으로 정렬하여 순서 유지
-                    globalTasks.sort((a, b) => (a.order || 0) - (b.order || 0));
+                    if (snapshot.metadata.hasPendingWrites) return;
+                    globalTasks = snapshot.docs.map(d => d.data()).sort((a, b) => (a.order || 0) - (b.order || 0));
+                    triggerRefreshIfActive('dashboard');
+                });
 
-                    // 대시보드 화면에 있을 때만 즉각 새로고침 리렌더링
-                    const activeNav = document.querySelector('.nav-item.active');
-                    if (activeNav && activeNav.dataset.target === 'dashboard') {
-                        renderDashList();
-                    }
+                onSnapshot(collection(firestoreDB, "checklists"), (snapshot) => {
+                    if (snapshot.metadata.hasPendingWrites) return;
+                    globalChecklists = snapshot.docs.map(d => d.data()).sort((a, b) => b.id - a.id);
+                    triggerRefreshIfActive('checklist');
+                });
+
+                onSnapshot(collection(firestoreDB, "monthlyChecklists"), (snapshot) => {
+                    if (snapshot.metadata.hasPendingWrites) return;
+                    globalMonthlyChecklists = snapshot.docs.map(d => d.data()).sort((a, b) => b.id - a.id);
+                    triggerRefreshIfActive('monthly');
+                });
+
+                onSnapshot(collection(firestoreDB, "reports"), (snapshot) => {
+                    if (snapshot.metadata.hasPendingWrites) return;
+                    globalReports = snapshot.docs.map(d => d.data()).sort((a, b) => b.id - a.id);
+                    triggerRefreshIfActive('report');
+                });
+
+                onSnapshot(collection(firestoreDB, "reportRemarks"), (snapshot) => {
+                    if (snapshot.metadata.hasPendingWrites) return;
+                    globalReportRemarks = {};
+                    snapshot.forEach(d => { globalReportRemarks[d.id] = d.data().remarks || []; });
+                    triggerRefreshIfActive('report');
                 });
 
             } catch (e) {
@@ -485,6 +551,21 @@
                 isDBConnected = false; 
             }
         }
+
+        /* 🚨 포커스가 빠져나갔을 때 밀려있던 실시간 렌더링 처리 */
+        document.addEventListener('focusout', (e) => {
+            setTimeout(() => {
+                const activeTag = document.activeElement ? document.activeElement.tagName : '';
+                if (window.pendingRealtimeUpdate && activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
+                    window.pendingRealtimeUpdate = false;
+                    const activeNav = document.querySelector('.nav-item.active');
+                    if (activeNav) {
+                        refreshCurrentView(activeNav.dataset.target);
+                        showToast("🔄 밀려있던 실시간 데이터가 반영되었습니다.");
+                    }
+                }
+            }, 100);
+        });
 
         function autoResizeTextarea(el) {
             if (!el || el.tagName !== 'TEXTAREA') return;
@@ -517,7 +598,7 @@
         });
 
         /* =========================================
-           🚨 미래 월 자동 연동 (Cascading Updates) 헬퍼
+           🚨 미래 월 자동 연동 (Cascading Updates) 헬퍼 - (독립 컬렉션 updateDoc으로 변경)
            ========================================= */
         function getMonthDiff(m1, m2) {
             const [y1, mo1] = m1.split('-').map(Number);
@@ -534,46 +615,59 @@
                 .sort();
         }
 
-        function syncFutureGroupAdd(db, uid, currentMonth, newGroup) {
-            const futureMonths = getInitializedFutureMonths(db, uid, currentMonth);
-            futureMonths.forEach(m => {
-                db.monthlyChecklists.push({ ...newGroup, id: Date.now() + Math.random(), syncGroupId: newGroup.syncGroupId, month: m, items: newGroup.items.map(i => ({...i, id: Date.now() + Math.random()})) });
-            });
+        async function syncFutureGroupAdd(uid, currentMonth, newGroup) {
+            const futureMonths = getInitializedFutureMonths(globalDB, uid, currentMonth);
+            for(let m of futureMonths) {
+                const copy = { ...newGroup, id: Date.now() + Math.random(), month: m, items: newGroup.items.map(i => ({...i, id: Date.now() + Math.random()})) };
+                await setDoc(doc(firestoreDB, "monthlyChecklists", String(copy.id)), copy);
+            }
         }
 
-        function syncFutureGroupTitle(db, uid, currentMonth, syncGroupId, newTitle) {
-            getFutureMonthlyLists(db, uid, currentMonth).forEach(c => { if (c.syncGroupId === syncGroupId) c.title = newTitle; });
+        async function syncFutureGroupTitle(uid, currentMonth, syncGroupId, newTitle) {
+            const futureMonths = getInitializedFutureMonths(globalDB, uid, currentMonth);
+            for(let m of futureMonths) {
+                const targetGroup = globalMonthlyChecklists.find(c => c.userId === uid && c.month === m && c.syncGroupId === syncGroupId);
+                if (targetGroup) await updateDoc(doc(firestoreDB, "monthlyChecklists", String(targetGroup.id)), { title: newTitle });
+            }
         }
 
-        function syncFutureGroupDelete(db, uid, currentMonth, syncGroupId) {
-            db.monthlyChecklists = db.monthlyChecklists.filter(c => !(c.userId === uid && c.month > currentMonth && c.syncGroupId === syncGroupId));
+        async function syncFutureGroupDelete(uid, currentMonth, syncGroupId) {
+            const futureMonths = getInitializedFutureMonths(globalDB, uid, currentMonth);
+            for(let m of futureMonths) {
+                const targetGroup = globalMonthlyChecklists.find(c => c.userId === uid && c.month === m && c.syncGroupId === syncGroupId);
+                if (targetGroup) await deleteDoc(doc(firestoreDB, "monthlyChecklists", String(targetGroup.id)));
+            }
         }
 
-        function syncFutureItemAdd(db, uid, currentMonth, syncGroupId, item) {
+        async function syncFutureItemAdd(uid, currentMonth, syncGroupId, item) {
             if (item.status === '당월') return;
-            const futureMonths = getInitializedFutureMonths(db, uid, currentMonth);
-            futureMonths.forEach(m => {
-                const targetGroup = db.monthlyChecklists.find(c => c.userId === uid && c.month === m && c.syncGroupId === syncGroupId);
+            const futureMonths = getInitializedFutureMonths(globalDB, uid, currentMonth);
+            for(let m of futureMonths) {
+                const targetGroup = globalMonthlyChecklists.find(c => c.userId === uid && c.month === m && c.syncGroupId === syncGroupId);
                 if (targetGroup) {
                     const monthDiff = getMonthDiff(currentMonth, m);
                     if (item.status === '고정') { let newItem = { ...item, id: Date.now() + Math.random(), isChecked: false }; targetGroup.items.push(newItem); } 
                     else if (item.status === '이월' && monthDiff === 1) { let newItem = { ...item, id: Date.now() + Math.random(), isChecked: false, status: '당월' }; targetGroup.items.push(newItem); }
+                    await updateDoc(doc(firestoreDB, "monthlyChecklists", String(targetGroup.id)), { items: targetGroup.items });
                 }
-            });
+            }
         }
 
-        function syncFutureItemDelete(db, uid, currentMonth, syncItemId) {
-            const futureMonths = getInitializedFutureMonths(db, uid, currentMonth);
-            futureMonths.forEach(m => {
-                const targetGroup = db.monthlyChecklists.find(c => c.userId === uid && c.month === m && c.items.some(i => i.syncItemId === syncItemId));
-                if (targetGroup) targetGroup.items = targetGroup.items.filter(i => i.syncItemId !== syncItemId);
-            });
+        async function syncFutureItemDelete(uid, currentMonth, syncItemId) {
+            const futureMonths = getInitializedFutureMonths(globalDB, uid, currentMonth);
+            for(let m of futureMonths) {
+                const targetGroup = globalMonthlyChecklists.find(c => c.userId === uid && c.month === m && c.items.some(i => i.syncItemId === syncItemId));
+                if (targetGroup) {
+                    targetGroup.items = targetGroup.items.filter(i => i.syncItemId !== syncItemId);
+                    await updateDoc(doc(firestoreDB, "monthlyChecklists", String(targetGroup.id)), { items: targetGroup.items });
+                }
+            }
         }
 
-        function syncFutureItemEdit(db, uid, currentMonth, syncGroupId, editedItem) {
-            const futureMonths = getInitializedFutureMonths(db, uid, currentMonth);
-            futureMonths.forEach(m => {
-                const targetGroup = db.monthlyChecklists.find(c => c.userId === uid && c.month === m && c.syncGroupId === syncGroupId);
+        async function syncFutureItemEdit(uid, currentMonth, syncGroupId, editedItem) {
+            const futureMonths = getInitializedFutureMonths(globalDB, uid, currentMonth);
+            for(let m of futureMonths) {
+                const targetGroup = globalMonthlyChecklists.find(c => c.userId === uid && c.month === m && c.syncGroupId === syncGroupId);
                 if (targetGroup) {
                     const targetIdx = targetGroup.items.findIndex(i => i.syncItemId === editedItem.syncItemId);
                     const monthDiff = getMonthDiff(currentMonth, m);
@@ -595,8 +689,9 @@
                             targetGroup.items.push(newItem);
                         }
                     }
+                    await updateDoc(doc(firestoreDB, "monthlyChecklists", String(targetGroup.id)), { items: targetGroup.items });
                 }
-            });
+            }
         }
 
         /* =========================================
@@ -691,7 +786,7 @@
         }
 
         /* =========================================
-           3. 대시보드 로직 (🚨 실시간 globalTasks 적용)
+           3. 대시보드 로직
            ========================================= */
         let dashState = { tab: 'active', search: '' };
         function initDashboard(container) {
@@ -732,8 +827,6 @@
         function renderDashList() {
             const container = document.getElementById('task-list-container'); if(!container) return;
             const uid = getCurrentUserId();
-            
-            // 🚨 독립된 globalTasks 사용
             const filtered = globalTasks.filter(t => t.userId === uid && (t.title.toLowerCase().includes(dashState.search.toLowerCase()) || t.category.toLowerCase().includes(dashState.search.toLowerCase())));
             
             if (dashState.tab === 'active') {
@@ -771,7 +864,7 @@
         }
 
         /* =========================================
-           4. 보고서 로직 (🚨 globalTasks 연동 반영)
+           4. 보고서 로직 (🚨 독립된 globalReports 연동)
            ========================================= */
         let reportState = { tab: 'weekly', selectedWeek: '', selectedMonth: '' };
         function generateWeeklyOptions() {
@@ -802,8 +895,6 @@
             requestAnimationFrame(resizeAllTextareas);
         }
         function generateReportHTML(type) {
-            const db = getDB(); 
-            if(!db) return { title:'', html:'' };
             const uid = getCurrentUserId();
             let periodStart, periodEnd, title, remarkKey;
             
@@ -818,7 +909,7 @@
             }
             const pStartStr = toLocalISOString(periodStart), pEndStr = toLocalISOString(periodEnd);
             
-            let targetTasks = globalTasks.filter(t => { // 🚨 globalTasks 적용
+            let targetTasks = globalTasks.filter(t => { 
                 if (t.userId !== uid) return false;
                 if (t.status === '대기' || t.status === '보류' || !t.startDate) return false;
                 const end = (t.status === '완료' && t.endDate) ? t.endDate : '9999-12-31';
@@ -860,20 +951,17 @@
                     }
                 }); html += `</div>`;
             }
-            if (!db.reportRemarks[remarkKey]) { db.reportRemarks[remarkKey] = []; saveDB(db); }
-            const userRemarks = db.reportRemarks[remarkKey].filter(r => r.userId === uid);
+            const userRemarks = (globalReportRemarks[remarkKey] || []).filter(r => r.userId === uid);
             html += `<div class="group-category" style="margin-top: 3.5rem; border-top: 2px dashed var(--color-border); padding-top: 2.5rem;"><div class="group-category-title" style="border-bottom:none; margin-bottom: 0.5rem;">비고 및 특이사항</div><div class="report-remarks-list" data-remark-key="${remarkKey}">
                         ${userRemarks.map(r => `<div class="sub-item-row" data-sub-id="${r.id}" style="margin-bottom:0.5rem; align-items:flex-start; width:100%;"><span style="color:var(--color-text-sub); padding-top:0.3rem;">•</span><textarea spellcheck="false" rows="1" class="inline-input remark-text" style="flex:1; width:100%; border-bottom: 1px dashed var(--color-border); border-radius: 0;">${r.text}</textarea><button class="btn-icon btn-del-remark" style="margin-top:0.1rem;">✕</button></div>`).join('')}
                         <button class="btn-add-remark" style="margin-top: 1rem;">+ 특이사항 추가</button></div></div>`;
             return { title, html };
         }
         function renderArchive(area) {
-            const db = getDB(); if(!db) return;
             const uid = getCurrentUserId();
-            const userReports = db.reports.filter(r => r.userId === uid); 
+            const userReports = globalReports.filter(r => r.userId === uid); 
             if (userReports.length === 0) { area.innerHTML = `<div style="text-align:center; padding:4rem; color:var(--color-text-sub);">저장된 보고서가 없습니다.</div>`; return; }
-            const sorted = [...userReports].sort((a,b) => b.id - a.id);
-            area.innerHTML = `<div class="archive-list">${sorted.map(r => `<div class="archive-item" data-id="${r.id}"><div><div class="archive-title">${r.title.replace('\n', ' ')}</div><div class="archive-date">저장일자: ${new Date(r.id).toLocaleString()}</div></div><button class="btn-icon btn-delete-report" style="font-size:1.2rem;">🗑️</button></div>`).join('')}</div>`;
+            area.innerHTML = `<div class="archive-list">${userReports.map(r => `<div class="archive-item" data-id="${r.id}"><div><div class="archive-title">${r.title.replace('\n', ' ')}</div><div class="archive-date">저장일자: ${new Date(r.id).toLocaleString()}</div></div><button class="btn-icon btn-delete-report" style="font-size:1.2rem;">🗑️</button></div>`).join('')}</div>`;
         }
 
         /* =========================================
@@ -950,7 +1038,7 @@
         }
 
         /* =========================================
-           5-1. 일반 체크리스트 로직
+           5-1. 일반 체크리스트 로직 (🚨 독립된 globalChecklists 연동)
            ========================================= */
         let chkState = { search: '' };
         function initChecklist(container) {
@@ -971,9 +1059,8 @@
             const lastScrollY = window.scrollY; const cardScrolls = new Map();
             document.querySelectorAll('.chk-card').forEach(card => { const body = card.querySelector('.chk-body'); if (body) cardScrolls.set(card.dataset.chkId, body.scrollTop); });
 
-            const db = getDB(); if(!db) return;
             const uid = getCurrentUserId();
-            let filtered = db.checklists.filter(c => c.userId === uid); 
+            let filtered = globalChecklists.filter(c => c.userId === uid); 
             
             if (chkState.search.trim() !== '') {
                 const term = chkState.search.toLowerCase();
@@ -992,7 +1079,7 @@
         }
 
         /* =========================================
-           5-2. 매월 체크리스트 로직
+           5-2. 매월 체크리스트 로직 (🚨 독립된 globalMonthlyChecklists 연동)
            ========================================= */
         let monthlyChkState = { search: '', month: getCurrentMonthStr() };
         function initMonthlyChecklist(container) {
@@ -1013,85 +1100,15 @@
             renderMonthlyChecklist();
         }
 
-        function getNextMonthStr(monthStr) {
-            const [y, m] = monthStr.split('-').map(Number);
-            const date = new Date(y, m, 1);
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        }
-        function getPrevMonthStr(monthStr) {
-            const [y, m] = monthStr.split('-').map(Number);
-            const date = new Date(y, m - 2, 1);
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        }
-
-        async function ensureMonthInitialized(db, uid, targetMonth) {
-            if(!db) return;
-            const initKey = `${uid}_${targetMonth}`;
-            if (db.monthlyChecklistInit && db.monthlyChecklistInit[initKey]) return;
-
-            const initKeys = Object.keys(db.monthlyChecklistInit || {})
-                                   .filter(k => k.startsWith(`${uid}_`))
-                                   .map(k => k.split('_')[1])
-                                   .sort();
-
-            let lastInitMonth = null;
-            for (let i = initKeys.length - 1; i >= 0; i--) {
-                if (initKeys[i] < targetMonth) {
-                    lastInitMonth = initKeys[i];
-                    break;
-                }
-            }
-
-            if (!db.monthlyChecklistInit) db.monthlyChecklistInit = {};
-
-            if (!lastInitMonth) {
-                db.monthlyChecklistInit[initKey] = true;
-                return;
-            }
-
-            let curr = lastInitMonth;
-            while (curr < targetMonth) {
-                const nextMonth = getNextMonthStr(curr);
-                
-                const prevRecords = db.monthlyChecklists.filter(c => c.userId === uid && c.month === curr);
-                if (prevRecords.length > 0) {
-                    prevRecords.forEach(group => {
-                        let newItems = [];
-                        group.items.forEach(item => {
-                            if (item.status === '당월') return; 
-                            let newItem = { ...item, id: Date.now() + Math.random(), syncItemId: item.syncItemId, isChecked: false };
-                            if (item.status === '이월') newItem.status = '당월';
-                            newItem.memos = [...(item.memos || [])]; 
-                            newItems.push(newItem);
-                        });
-                        
-                        db.monthlyChecklists.push({
-                            ...group,
-                            id: Date.now() + Math.random(),
-                            syncGroupId: group.syncGroupId, 
-                            month: nextMonth,
-                            items: newItems
-                        });
-                    });
-                }
-                
-                db.monthlyChecklistInit[`${uid}_${nextMonth}`] = true;
-                curr = nextMonth;
-            }
-        }
-
         async function renderMonthlyChecklist() {
             const container = document.getElementById('monthly-checklist-container'); if(!container) return;
             const lastScrollY = window.scrollY; const cardScrolls = new Map();
             document.querySelectorAll('.chk-card').forEach(card => { const body = card.querySelector('.chk-body'); if (body) cardScrolls.set(card.dataset.chkId, body.scrollTop); });
 
-            const db = getDB(); if(!db) return;
             const uid = getCurrentUserId();
+            await ensureMonthInitialized(globalDB, uid, monthlyChkState.month);
             
-            await ensureMonthInitialized(db, uid, monthlyChkState.month);
-            await saveDB(db);
-            
-            let filtered = db.monthlyChecklists.filter(c => c.userId === uid && c.month === monthlyChkState.month); 
+            let filtered = globalMonthlyChecklists.filter(c => c.userId === uid && c.month === monthlyChkState.month); 
 
             if (filtered.length === 0) { container.innerHTML = `<div style="text-align:center; padding:5rem; color:var(--color-text-sub);">해당 월에 데이터가 없습니다.</div>`; return; }
             container.innerHTML = `<div class="checklist-grid chk-list-wrap">${filtered.map(c => getChecklistHTML(c, true)).join('')}</div>`;
@@ -1186,9 +1203,7 @@
                 const db = getDB();
                 if (!db) return alert("데이터베이스를 불러올 수 없습니다.");
                 
-                // 백업본 생성 시, 실시간 감시 중인 globalTasks도 포함시켜 다운로드
-                const backupData = { ...db, tasks: globalTasks };
-                
+                const backupData = { ...db, tasks: globalTasks, checklists: globalChecklists, monthlyChecklists: globalMonthlyChecklists, reports: globalReports, reportRemarks: globalReportRemarks };
                 const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
                 const downloadAnchorNode = document.createElement('a');
                 downloadAnchorNode.setAttribute("href", dataStr);
@@ -1199,16 +1214,12 @@
                 return;
             }
             
-            if (target.id === 'btn-restore-db') {
-                document.getElementById('backup-file-input').click();
-                return;
-            }
+            if (target.id === 'btn-restore-db') { document.getElementById('backup-file-input').click(); return; }
 
             if (target.classList.contains('btn-sort-tasks') || target.closest('.btn-sort-tasks')) {
                 const btn = target.classList.contains('btn-sort-tasks') ? target : target.closest('.btn-sort-tasks');
                 const status = btn.dataset.status;
                 const uid = getCurrentUserId();
-
                 let targetTasks = globalTasks.filter(t => t.userId === uid && t.status === status);
                 
                 targetTasks.sort((a, b) => {
@@ -1218,25 +1229,12 @@
                     return new Date(a.startDate) - new Date(b.startDate);
                 });
                 
-                // 🚨 실시간 조각 업데이트: 정렬된 순서대로 order 값 갱신
-                for (let i = 0; i < targetTasks.length; i++) {
-                    await updateDoc(doc(firestoreDB, "tasks", String(targetTasks[i].id)), { order: i });
-                }
-                
-                showToast(`[${status}] 업무가 시작일 기준으로 자동 정렬되었습니다.`);
-                return;
+                for (let i = 0; i < targetTasks.length; i++) { await updateDoc(doc(firestoreDB, "tasks", String(targetTasks[i].id)), { order: i }); }
+                showToast(`[${status}] 업무가 시작일 기준으로 자동 정렬되었습니다.`); return;
             }
 
-            if (target.id === 'btn-prev-month' || target.closest('#btn-prev-month')) {
-                monthlyChkState.month = getPrevMonthStr(monthlyChkState.month);
-                document.getElementById('monthly-month-select').value = monthlyChkState.month;
-                renderMonthlyChecklist();
-            }
-            if (target.id === 'btn-next-month' || target.closest('#btn-next-month')) {
-                monthlyChkState.month = getNextMonthStr(monthlyChkState.month);
-                document.getElementById('monthly-month-select').value = monthlyChkState.month;
-                renderMonthlyChecklist();
-            }
+            if (target.id === 'btn-prev-month' || target.closest('#btn-prev-month')) { monthlyChkState.month = getPrevMonthStr(monthlyChkState.month); document.getElementById('monthly-month-select').value = monthlyChkState.month; renderMonthlyChecklist(); }
+            if (target.id === 'btn-next-month' || target.closest('#btn-next-month')) { monthlyChkState.month = getNextMonthStr(monthlyChkState.month); document.getElementById('monthly-month-select').value = monthlyChkState.month; renderMonthlyChecklist(); }
             
             if (target.id === 'btn-add-task') { document.getElementById('new-task-category').value = '기본업무'; document.getElementById('new-task-title').value = ''; document.getElementById('new-task-status').value = '대기'; document.getElementById('new-task-start').value = ''; document.getElementById('new-task-end').value = ''; document.getElementById('task-add-modal').classList.remove('hidden'); resizeAllTextareas(); document.getElementById('new-task-category').focus(); }
             if (target.id === 'btn-close-task-modal') document.getElementById('task-add-modal').classList.add('hidden');
@@ -1248,147 +1246,152 @@
                 if ((status === '진행중' || status === '보류' || status === '완료') && !startDate) startDate = today;
                 if (status === '완료' && !endDate) endDate = today;
 
-                const uid = getCurrentUserId(); 
-                const newId = Date.now();
+                const uid = getCurrentUserId(); const newId = Date.now();
                 const newTask = { id: newId, userId: uid, category: category, title: title, status: status, startDate: startDate, endDate: endDate, subItems: [], isOpen: true, order: 0 };
-                
-                // 🚨 실시간 조각 추가 (add task)
                 await setDoc(doc(firestoreDB, "tasks", String(newId)), newTask);
-                
                 document.getElementById('task-add-modal').classList.add('hidden'); dashState.tab = (status === '완료') ? 'completed' : 'active';
             }
             
-            if (target.id === 'btn-cancel-complete') {
-                document.getElementById('task-complete-modal').classList.add('hidden');
-            }
+            if (target.id === 'btn-cancel-complete') document.getElementById('task-complete-modal').classList.add('hidden');
             if (target.id === 'btn-confirm-complete') {
                 const taskId = Number(document.getElementById('task-complete-modal').dataset.taskId);
                 const t = globalTasks.find(x => x.id === taskId);
                 if(t) {
                     const dateVal = document.getElementById('complete-task-date').value || getTodayString();
-                    t.endDate = dateVal;
-                    if(!t.startDate) t.startDate = dateVal;
-                    
-                    // 🚨 실시간 조각 상태 업데이트 (complete task)
-                    await updateDoc(doc(firestoreDB, "tasks", String(taskId)), { 
-                        status: '완료', 
-                        endDate: t.endDate, 
-                        startDate: t.startDate 
-                    });
+                    await updateDoc(doc(firestoreDB, "tasks", String(taskId)), { status: '완료', endDate: dateVal, startDate: t.startDate || dateVal });
                 }
                 document.getElementById('task-complete-modal').classList.add('hidden');
             }
 
             if (target.classList.contains('btn-toggle') && target.closest('.task-card')) { 
                 const c = target.closest('.task-card'), t = globalTasks.find(x=>x.id===Number(c.dataset.id)); 
-                if(t) {
-                    await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { isOpen: !t.isOpen });
-                }
+                if(t) await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { isOpen: !t.isOpen });
             }
 
             if (target.classList.contains('btn-add-sub') && !target.classList.contains('btn-add-chk-item')) { 
                 const t = globalTasks.find(x=>x.id===Number(target.closest('.task-card').dataset.id)); 
-                if(t) {
-                    const newSub = [...t.subItems, {id:Date.now(), text:''}];
-                    await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { subItems: newSub });
-                }
+                if(t) await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { subItems: [...t.subItems, {id:Date.now(), text:''}] });
             }
             if (target.classList.contains('btn-del-sub')) { 
                 const t = globalTasks.find(x=>x.id===Number(target.closest('.task-card').dataset.id)); 
-                if(t) {
-                    const filteredSub = t.subItems.filter(s=>s.id!==Number(target.closest('.sub-item-row').dataset.subId));
-                    await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { subItems: filteredSub });
-                }
+                if(t) await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { subItems: t.subItems.filter(s=>s.id!==Number(target.closest('.sub-item-row').dataset.subId)) });
             }
             if (target.classList.contains('btn-delete') && !target.classList.contains('btn-delete-report')) { 
-                if(confirm('삭제?')){
-                    const taskId = target.closest('.task-card').dataset.id;
-                    await deleteDoc(doc(firestoreDB, "tasks", String(taskId)));
-                } 
+                if(confirm('삭제?')) await deleteDoc(doc(firestoreDB, "tasks", String(target.closest('.task-card').dataset.id)));
             }
             
             if (target.classList.contains('tab-btn') && !target.classList.contains('report-tab')) { dashState.tab = target.dataset.tab; initDashboard(document.getElementById('content-area')); }
             if (target.classList.contains('report-tab')) { reportState.tab = target.dataset.tab; initReport(document.getElementById('content-area')); }
             
-            if (target.id === 'btn-save-report') { const p = document.getElementById('current-report-paper'); p.querySelectorAll('input, textarea').forEach(i=>i.setAttribute('value',i.value)); p.querySelectorAll('textarea').forEach(i=>i.innerHTML = i.value); const db=getDB(),{title}=generateReportHTML(reportState.tab), uid=getCurrentUserId(); db.reports.push({id:Date.now(), userId: uid, type:reportState.tab, title, html:p.innerHTML}); saveDB(db); alert('저장완료!'); reportState.tab='archive'; initReport(document.getElementById('content-area')); }
-            if (target.classList.contains('btn-add-remark')) { const rKey=target.closest('.report-remarks-list').dataset.remarkKey, db=getDB(), uid=getCurrentUserId(); if(!db.reportRemarks[rKey]) db.reportRemarks[rKey] = []; db.reportRemarks[rKey].push({id:Date.now(), userId: uid, text:''}); saveDB(db); initReport(document.getElementById('content-area')); }
-            if (target.classList.contains('btn-del-remark')) { const rKey=target.closest('.report-remarks-list').dataset.remarkKey, subId=Number(target.closest('.sub-item-row').dataset.subId), db=getDB(); db.reportRemarks[rKey]=db.reportRemarks[rKey].filter(r=>r.id!==subId); saveDB(db); initReport(document.getElementById('content-area')); }
-            if (target.closest('.archive-item') && !target.classList.contains('btn-delete-report')) { const db=getDB(), r=db.reports.find(x=>x.id===Number(target.closest('.archive-item').dataset.id)); if(r){document.getElementById('report-modal-body').innerHTML=`<div class="report-paper" style="box-shadow:none;border:none;padding:1rem;">${r.html}</div>`; document.getElementById('report-modal').classList.remove('hidden');} }
-            if (target.classList.contains('btn-delete-report')) { if(confirm('삭제?')){const id=Number(target.closest('.archive-item').dataset.id), db=getDB(); db.reports=db.reports.filter(r=>r.id!==id); saveDB(db); renderArchive(document.getElementById('report-content-area'));} }
+            if (target.id === 'btn-save-report') { 
+                const p = document.getElementById('current-report-paper'); 
+                p.querySelectorAll('input, textarea').forEach(i=>i.setAttribute('value',i.value)); p.querySelectorAll('textarea').forEach(i=>i.innerHTML = i.value); 
+                const {title}=generateReportHTML(reportState.tab), uid=getCurrentUserId(), newId=Date.now(); 
+                await setDoc(doc(firestoreDB, "reports", String(newId)), {id:newId, userId: uid, type:reportState.tab, title, html:p.innerHTML}); 
+                alert('저장완료!'); reportState.tab='archive'; initReport(document.getElementById('content-area')); 
+            }
+            if (target.classList.contains('btn-add-remark')) { 
+                const rKey=target.closest('.report-remarks-list').dataset.remarkKey, uid=getCurrentUserId(); 
+                const arr = globalReportRemarks[rKey] || [];
+                arr.push({id:Date.now(), userId: uid, text:''}); 
+                await setDoc(doc(firestoreDB, "reportRemarks", rKey), { remarks: arr });
+            }
+            if (target.classList.contains('btn-del-remark')) { 
+                const rKey=target.closest('.report-remarks-list').dataset.remarkKey, subId=Number(target.closest('.sub-item-row').dataset.subId);
+                const arr = (globalReportRemarks[rKey] || []).filter(r=>r.id!==subId);
+                await setDoc(doc(firestoreDB, "reportRemarks", rKey), { remarks: arr });
+            }
+            if (target.closest('.archive-item') && !target.classList.contains('btn-delete-report')) { 
+                const r=globalReports.find(x=>x.id===Number(target.closest('.archive-item').dataset.id)); 
+                if(r){document.getElementById('report-modal-body').innerHTML=`<div class="report-paper" style="box-shadow:none;border:none;padding:1rem;">${r.html}</div>`; document.getElementById('report-modal').classList.remove('hidden');} 
+            }
+            if (target.classList.contains('btn-delete-report')) { 
+                if(confirm('삭제?')){ await deleteDoc(doc(firestoreDB, "reports", String(target.closest('.archive-item').dataset.id))); } 
+            }
             
             if (target.classList.contains('btn-toggle-chk')) { 
-                const c = target.closest('.chk-card'), db=getDB(), isMonthly = c.dataset.isMonthly==='true';
-                const l = isMonthly ? db.monthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : db.checklists.find(x=>x.id===Number(c.dataset.chkId)); 
-                l.isOpen=!l.isOpen; saveDB(db); target.textContent=l.isOpen?'▼':'▶'; l.isOpen?c.querySelector('.chk-body').classList.remove('hidden'):c.querySelector('.chk-body').classList.add('hidden'); 
-                if(l.isOpen) requestAnimationFrame(() => c.querySelectorAll('textarea').forEach(autoResizeTextarea));
+                const c = target.closest('.chk-card'), isMonthly = c.dataset.isMonthly==='true';
+                const l = isMonthly ? globalMonthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : globalChecklists.find(x=>x.id===Number(c.dataset.chkId)); 
+                if(l) await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(l.id)), { isOpen: !l.isOpen });
             }
-            if (target.id === 'btn-add-checklist') { const db=getDB(), uid=getCurrentUserId(); const newObj = {id:Date.now(), syncGroupId:Date.now(), userId:uid, title:'', isOpen:true, items:[]}; db.checklists.unshift(newObj); saveDB(db); renderChecklist(); }
+            if (target.id === 'btn-add-checklist') { 
+                const uid=getCurrentUserId(), newObj = {id:Date.now(), syncGroupId:Date.now(), userId:uid, title:'', isOpen:true, items:[]}; 
+                await setDoc(doc(firestoreDB, "checklists", String(newObj.id)), newObj); 
+            }
             
             if (target.id === 'btn-add-monthly-checklist') { 
-                const db=getDB(), uid=getCurrentUserId(); 
-                const newObj = {id:Date.now(), syncGroupId:Date.now(), userId:uid, month:monthlyChkState.month, title:'', isOpen:true, items:[]}; 
-                db.monthlyChecklists.unshift(newObj); 
-                syncFutureGroupAdd(db,uid,monthlyChkState.month,newObj); 
-                await saveDB(db); renderMonthlyChecklist(); 
+                const uid=getCurrentUserId(), newObj = {id:Date.now(), syncGroupId:Date.now(), userId:uid, month:monthlyChkState.month, title:'', isOpen:true, items:[]}; 
+                await setDoc(doc(firestoreDB, "monthlyChecklists", String(newObj.id)), newObj); 
+                syncFutureGroupAdd(uid,monthlyChkState.month,newObj); 
             }
             
             if (target.classList.contains('btn-add-chk-item')) { 
-                const c=target.closest('.chk-card'), db=getDB(), isMonthly = c.dataset.isMonthly==='true', uid=getCurrentUserId();
-                const l = isMonthly ? db.monthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : db.checklists.find(x=>x.id===Number(c.dataset.chkId));
-                const newItem = {id:Date.now(), syncItemId:Date.now(), text:'', memos:[''], isChecked:false, isMemoOpen:true, status:'당월'};
-                l.items.push(newItem); 
-                if(isMonthly) syncFutureItemAdd(db,uid,monthlyChkState.month,l.syncGroupId||l.id,newItem);
-                await saveDB(db); isMonthly ? renderMonthlyChecklist() : renderChecklist(); 
+                const c=target.closest('.chk-card'), isMonthly = c.dataset.isMonthly==='true', uid=getCurrentUserId();
+                const l = isMonthly ? globalMonthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : globalChecklists.find(x=>x.id===Number(c.dataset.chkId));
+                if(l) {
+                    const newItem = {id:Date.now(), syncItemId:Date.now(), text:'', memos:[''], isChecked:false, isMemoOpen:true, status:'당월'};
+                    await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(l.id)), { items: [...l.items, newItem] });
+                    if(isMonthly) syncFutureItemAdd(uid,monthlyChkState.month,l.syncGroupId||l.id,newItem);
+                }
             }
             if (target.classList.contains('btn-del-chk')) { 
                 if(confirm('그룹삭제?')){
-                    const c=target.closest('.chk-card'), db=getDB(), isMonthly = c.dataset.isMonthly==='true', uid=getCurrentUserId();
-                    const listId = Number(c.dataset.chkId);
+                    const c=target.closest('.chk-card'), isMonthly = c.dataset.isMonthly==='true', uid=getCurrentUserId(), listId = Number(c.dataset.chkId);
                     if(isMonthly) {
-                        const l = db.monthlyChecklists.find(x=>x.id===listId);
-                        if(l) syncFutureGroupDelete(db,uid,monthlyChkState.month,l.syncGroupId||l.id);
-                        db.monthlyChecklists = db.monthlyChecklists.filter(x=>x.id!==listId);
-                    } else db.checklists = db.checklists.filter(x=>x.id!==listId);
-                    await saveDB(db); isMonthly ? renderMonthlyChecklist() : renderChecklist();
+                        const l = globalMonthlyChecklists.find(x=>x.id===listId);
+                        if(l) syncFutureGroupDelete(uid,monthlyChkState.month,l.syncGroupId||l.id);
+                        await deleteDoc(doc(firestoreDB, "monthlyChecklists", String(listId)));
+                    } else await deleteDoc(doc(firestoreDB, "checklists", String(listId)));
                 } 
             }
             if (target.classList.contains('btn-del-chk-item')) { 
-                const c=target.closest('.chk-card'), db=getDB(), isMonthly = c.dataset.isMonthly==='true', uid=getCurrentUserId();
-                const l = isMonthly ? db.monthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : db.checklists.find(x=>x.id===Number(c.dataset.chkId));
-                const itemId = Number(target.closest('.chk-item-row').dataset.itemId);
-                const itemToDel = l.items.find(i=>i.id===itemId);
-                l.items=l.items.filter(i=>i.id!==itemId); 
-                if(isMonthly && itemToDel) syncFutureItemDelete(db,uid,monthlyChkState.month,itemToDel.syncItemId||itemToDel.id);
-                await saveDB(db); isMonthly ? renderMonthlyChecklist() : renderChecklist(); 
+                const c=target.closest('.chk-card'), isMonthly = c.dataset.isMonthly==='true', uid=getCurrentUserId(), itemId = Number(target.closest('.chk-item-row').dataset.itemId);
+                const l = isMonthly ? globalMonthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : globalChecklists.find(x=>x.id===Number(c.dataset.chkId));
+                if(l) {
+                    const itemToDel = l.items.find(i=>i.id===itemId);
+                    await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(l.id)), { items: l.items.filter(i=>i.id!==itemId) });
+                    if(isMonthly && itemToDel) syncFutureItemDelete(uid,monthlyChkState.month,itemToDel.syncItemId||itemToDel.id);
+                }
             }
             if (target.classList.contains('btn-uncheck-all')) { 
-                const c=target.closest('.chk-card'), db=getDB(), isMonthly = c.dataset.isMonthly==='true';
-                const l = isMonthly ? db.monthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : db.checklists.find(x=>x.id===Number(c.dataset.chkId));
-                l.items.forEach(i=>i.isChecked=false); saveDB(db); isMonthly ? renderMonthlyChecklist() : renderChecklist(); 
+                const c=target.closest('.chk-card'), isMonthly = c.dataset.isMonthly==='true';
+                const l = isMonthly ? globalMonthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : globalChecklists.find(x=>x.id===Number(c.dataset.chkId));
+                if(l) {
+                    const resetItems = l.items.map(i => ({...i, isChecked: false}));
+                    await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(l.id)), { items: resetItems });
+                }
             }
             
             if (target.classList.contains('btn-toggle-memo')) {
-                const c=target.closest('.chk-card'), db=getDB(), isMonthly = c.dataset.isMonthly==='true';
-                const l = isMonthly ? db.monthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : db.checklists.find(x=>x.id===Number(c.dataset.chkId));
-                const item = l.items.find(i => i.id === Number(target.closest('.chk-item-row').dataset.itemId));
-                item.isMemoOpen = item.isMemoOpen === false ? true : false;
-                saveDB(db); isMonthly ? renderMonthlyChecklist() : renderChecklist();
+                const c=target.closest('.chk-card'), isMonthly = c.dataset.isMonthly==='true';
+                const l = isMonthly ? globalMonthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : globalChecklists.find(x=>x.id===Number(c.dataset.chkId));
+                if(l) {
+                    const itemId = Number(target.closest('.chk-item-row').dataset.itemId);
+                    const newItems = l.items.map(i => i.id === itemId ? {...i, isMemoOpen: !i.isMemoOpen} : i);
+                    await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(l.id)), { items: newItems });
+                }
             }
             if (target.classList.contains('btn-add-memo')) {
-                const c=target.closest('.chk-card'), db=getDB(), isMonthly = c.dataset.isMonthly==='true', uid=getCurrentUserId();
-                const l = isMonthly ? db.monthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : db.checklists.find(x=>x.id===Number(c.dataset.chkId));
-                const item = l.items.find(i => i.id === Number(target.closest('.chk-item-row').dataset.itemId));
-                if (!item.memos) item.memos = []; item.memos.push(''); 
-                if(isMonthly) syncFutureItemEdit(db,uid,monthlyChkState.month,l.syncGroupId||l.id,item);
-                await saveDB(db); isMonthly ? renderMonthlyChecklist() : renderChecklist();
+                const c=target.closest('.chk-card'), isMonthly = c.dataset.isMonthly==='true', uid=getCurrentUserId();
+                const l = isMonthly ? globalMonthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : globalChecklists.find(x=>x.id===Number(c.dataset.chkId));
+                if(l) {
+                    const itemId = Number(target.closest('.chk-item-row').dataset.itemId);
+                    const item = l.items.find(i => i.id === itemId);
+                    item.memos = [...(item.memos||[]), ''];
+                    await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(l.id)), { items: l.items });
+                    if(isMonthly) syncFutureItemEdit(uid,monthlyChkState.month,l.syncGroupId||l.id,item);
+                }
             }
             if (target.classList.contains('btn-del-memo')) {
-                const c=target.closest('.chk-card'), db=getDB(), isMonthly = c.dataset.isMonthly==='true', uid=getCurrentUserId();
-                const l = isMonthly ? db.monthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : db.checklists.find(x=>x.id===Number(c.dataset.chkId));
-                const item = l.items.find(i => i.id === Number(target.closest('.chk-item-row').dataset.itemId));
-                item.memos.splice(Number(target.dataset.idx), 1); 
-                if(isMonthly) syncFutureItemEdit(db,uid,monthlyChkState.month,l.syncGroupId||l.id,item);
-                await saveDB(db); isMonthly ? renderMonthlyChecklist() : renderChecklist();
+                const c=target.closest('.chk-card'), isMonthly = c.dataset.isMonthly==='true', uid=getCurrentUserId();
+                const l = isMonthly ? globalMonthlyChecklists.find(x=>x.id===Number(c.dataset.chkId)) : globalChecklists.find(x=>x.id===Number(c.dataset.chkId));
+                if(l) {
+                    const itemId = Number(target.closest('.chk-item-row').dataset.itemId);
+                    const item = l.items.find(i => i.id === itemId);
+                    item.memos.splice(Number(target.dataset.idx), 1);
+                    await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(l.id)), { items: l.items });
+                    if(isMonthly) syncFutureItemEdit(uid,monthlyChkState.month,l.syncGroupId||l.id,item);
+                }
             }
 
             if (target.id === 'btn-save-sys-settings') {
@@ -1499,18 +1502,17 @@
         
         document.addEventListener('drop', async (e) => {
             if (!draggedItem) return; e.preventDefault(); stopAutoScroll();
-            const db = getDB();
             
             if (dragType === 'item') {
                 const chkCard = draggedItem.closest('.chk-card');
                 if(chkCard) {
                     const isMonthly = chkCard.dataset.isMonthly === 'true';
                     const listId = Number(chkCard.dataset.chkId);
-                    const list = isMonthly ? db.monthlyChecklists.find(c => c.id === listId) : db.checklists.find(c => c.id === listId);
+                    const list = isMonthly ? globalMonthlyChecklists.find(c => c.id === listId) : globalChecklists.find(c => c.id === listId);
                     const currentItemNodes = Array.from(chkCard.querySelectorAll('.chk-item-row'));
                     const sortedIds = currentItemNodes.map(node => Number(node.dataset.itemId));
                     list.items.sort((a, b) => sortedIds.indexOf(a.id) - sortedIds.indexOf(b.id));
-                    saveDB(db);
+                    await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(list.id)), { items: list.items });
                 }
             } else if (dragType === 'card') {
                 const wrapClass = draggedItem.classList.contains('chk-card') ? '.chk-list-wrap' : '.task-list-wrap';
@@ -1523,25 +1525,15 @@
                     
                     if (draggedItem.classList.contains('chk-card')) {
                         const isMonthly = draggedItem.dataset.isMonthly === 'true';
-                        const uid = getCurrentUserId();
-                        let myLists = isMonthly ? db.monthlyChecklists.filter(c => c.userId === uid && c.month === monthlyChkState.month) : db.checklists.filter(c => c.userId === uid);
-                        myLists.sort((a, b) => sortedIds.indexOf(a.id) - sortedIds.indexOf(b.id));
-                        
-                        if(isMonthly) {
-                            const others = db.monthlyChecklists.filter(c => !(c.userId === uid && c.month === monthlyChkState.month));
-                            db.monthlyChecklists = [...myLists, ...others];
-                        } else {
-                            const others = db.checklists.filter(c => c.userId !== uid);
-                            db.checklists = [...myLists, ...others];
+                        for (let i=0; i<sortedIds.length; i++) {
+                            await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(sortedIds[i])), { id: sortedIds[i] }); 
                         }
-                        saveDB(db);
                     } else {
                         const uid = getCurrentUserId(); 
                         const kanbanCol = draggedItem.closest('.kanban-col');
                         const columnStatus = kanbanCol ? kanbanCol.dataset.status : '완료';
                         const taskId = Number(draggedItem.dataset.id);
                         
-                        // 🚨 실시간 조각 업데이트: 드래그 앤 드롭 이동 시 개별 updateDoc 사용
                         const taskToUpdate = globalTasks.find(t => t.id === taskId);
                         if (taskToUpdate && taskToUpdate.status !== columnStatus) {
                             const today = getTodayString();
@@ -1554,7 +1546,6 @@
                             await updateDoc(doc(firestoreDB, "tasks", String(taskId)), updatePayload);
                         }
 
-                        // 순서(Order) 개별 업데이트
                         for (let i = 0; i < sortedIds.length; i++) {
                             await updateDoc(doc(firestoreDB, "tasks", String(sortedIds[i])), { order: i });
                         }
@@ -1567,18 +1558,17 @@
                     const isMonthly = chkCard.dataset.isMonthly === 'true';
                     const listId = Number(chkCard.dataset.chkId);
                     const itemId = Number(itemRow.dataset.itemId);
-                    const list = isMonthly ? db.monthlyChecklists.find(c => c.id === listId) : db.checklists.find(c => c.id === listId);
+                    const list = isMonthly ? globalMonthlyChecklists.find(c => c.id === listId) : globalChecklists.find(c => c.id === listId);
                     const item = list.items.find(i => i.id === itemId);
 
                     const currentMemoNodes = Array.from(itemRow.querySelectorAll('.chk-memo'));
                     item.memos = currentMemoNodes.map(node => node.value);
 
+                    await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(list.id)), { items: list.items });
                     if (isMonthly) {
                         const uid = getCurrentUserId();
-                        syncFutureItemEdit(db, uid, monthlyChkState.month, list.syncGroupId||list.id, item);
+                        syncFutureItemEdit(uid, monthlyChkState.month, list.syncGroupId||list.id, item);
                     }
-                    saveDB(db);
-                    isMonthly ? renderMonthlyChecklist() : renderChecklist();
                 }
             } else if (dragType === 'subItem') {
                 const taskCard = draggedItem.closest('.task-card');
@@ -1606,15 +1596,13 @@
         document.body.addEventListener('input', (e) => { 
             const target = e.target;
             if (target.tagName === 'TEXTAREA') autoResizeTextarea(target);
-            
             if (target.id === 'dash-search') { dashState.search = e.target.value; renderDashList(); } 
             if (target.id === 'chk-search') { chkState.search = e.target.value; renderChecklist(); }
             
-            const db = getDB();
             const chkCard = target.closest('.chk-card');
             if (chkCard) {
                 const isMonthly = chkCard.dataset.isMonthly === 'true';
-                const list = isMonthly ? db.monthlyChecklists.find(c => c.id === Number(chkCard.dataset.chkId)) : db.checklists.find(c => c.id === Number(chkCard.dataset.chkId));
+                const list = isMonthly ? globalMonthlyChecklists.find(c => c.id === Number(chkCard.dataset.chkId)) : globalChecklists.find(c => c.id === Number(chkCard.dataset.chkId));
                 if (list) {
                     if (target.classList.contains('chk-title')) list.title = target.value;
                     else if (target.closest('.chk-item-row')) {
@@ -1630,9 +1618,7 @@
 
         document.body.addEventListener('focusout', async (e) => {
             const target = e.target;
-            const db = getDB();
             
-            // 🚨 실시간 조각 업데이트: 포커스가 벗어날 때 파이어베이스 Task 컬렉션에 핀포인트 저장
             const taskCard = target.closest('.task-card');
             if (taskCard) {
                 const taskId = taskCard.dataset.id;
@@ -1655,41 +1641,40 @@
                             shouldUpdate = true;
                         }
                     }
-                    
-                    if(shouldUpdate) {
-                        await updateDoc(doc(firestoreDB, "tasks", String(taskId)), updatePayload);
-                    }
+                    if(shouldUpdate) await updateDoc(doc(firestoreDB, "tasks", String(taskId)), updatePayload);
                 }
             }
 
             if (target.classList.contains('chk-title') || target.classList.contains('chk-text') || target.classList.contains('chk-memo')) {
                 const uid = getCurrentUserId(), chkCard = target.closest('.chk-card');
-                if (chkCard && chkCard.dataset.isMonthly === 'true') {
-                    const list = db.monthlyChecklists.find(c => c.id === Number(chkCard.dataset.chkId));
+                if (chkCard) {
+                    const isMonthly = chkCard.dataset.isMonthly === 'true';
+                    const list = isMonthly ? globalMonthlyChecklists.find(c => c.id === Number(chkCard.dataset.chkId)) : globalChecklists.find(c => c.id === Number(chkCard.dataset.chkId));
                     if (list) {
-                        if (target.classList.contains('chk-title')) syncFutureGroupTitle(db, uid, monthlyChkState.month, list.syncGroupId||list.id, list.title);
-                        else if (target.closest('.chk-item-row')) {
+                        if (target.classList.contains('chk-title')) {
+                            await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(list.id)), { title: list.title });
+                            if(isMonthly) syncFutureGroupTitle(uid, monthlyChkState.month, list.syncGroupId||list.id, list.title);
+                        } else if (target.closest('.chk-item-row')) {
                             const item = list.items.find(i => i.id === Number(target.closest('.chk-item-row').dataset.itemId));
-                            if (item) syncFutureItemEdit(db, uid, monthlyChkState.month, list.syncGroupId||list.id, item);
+                            if (item) {
+                                await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(list.id)), { items: list.items });
+                                if(isMonthly) syncFutureItemEdit(uid, monthlyChkState.month, list.syncGroupId||list.id, item);
+                            }
                         }
                     }
                 }
-                saveDB(db);
             }
         });
 
         document.body.addEventListener('change', async (e) => {
             const target = e.target; 
-            const db = getDB();
             
-            // 🚨 복원 파일 업로드 처리
             if (target.id === 'backup-file-input') {
                 const file = target.files[0];
                 if (!file) return;
 
                 if (!confirm("🚨 [경고] 복원을 진행하면 현재 시스템의 모든 데이터가 업로드한 파일의 내용으로 완전히 덮어씌워집니다.\n\n정말 시스템을 복원하시겠습니까?")) {
-                    target.value = ''; 
-                    return;
+                    target.value = ''; return;
                 }
 
                 const reader = new FileReader();
@@ -1700,22 +1685,22 @@
                         
                         isDBConnected = true; 
                         
-                        // 복원 시 tasks 배열이 파일에 들어있다면 다시 컬렉션으로 복구
-                        if (parsedData.tasks && parsedData.tasks.length > 0) {
-                            for (let t of parsedData.tasks) {
-                                await setDoc(doc(firestoreDB, "tasks", String(t.id)), t);
-                            }
+                        // 분할 컬렉션 복원 로직
+                        if (parsedData.tasks) for (let t of parsedData.tasks) await setDoc(doc(firestoreDB, "tasks", String(t.id)), t);
+                        if (parsedData.checklists) for (let t of parsedData.checklists) await setDoc(doc(firestoreDB, "checklists", String(t.id)), t);
+                        if (parsedData.monthlyChecklists) for (let t of parsedData.monthlyChecklists) await setDoc(doc(firestoreDB, "monthlyChecklists", String(t.id)), t);
+                        if (parsedData.reports) for (let t of parsedData.reports) await setDoc(doc(firestoreDB, "reports", String(t.id)), t);
+                        if (parsedData.reportRemarks) {
+                            for (let [key, arr] of Object.entries(parsedData.reportRemarks)) await setDoc(doc(firestoreDB, "reportRemarks", key), { remarks: arr });
                         }
                         
-                        parsedData.tasks = []; // 안전하게 비움
+                        parsedData.tasks = []; parsedData.checklists = []; parsedData.monthlyChecklists = []; parsedData.reports = []; parsedData.reportRemarks = {};
                         parsedData.lastSyncTime = Date.now();
                         await setDoc(doc(firestoreDB, "WorkSystem", DB_KEY), parsedData);
                         
                         alert("✅ 데이터 복원이 성공적으로 완료되었습니다.\n시스템을 다시 시작합니다.");
                         location.reload(); 
-                    } catch (error) {
-                        alert("파일을 읽는 중 오류가 발생했습니다: " + error.message);
-                    }
+                    } catch (error) { alert("파일을 읽는 중 오류가 발생했습니다: " + error.message); }
                     target.value = ''; 
                 };
                 reader.readAsText(file);
@@ -1740,15 +1725,22 @@
                     
                     let updatePayload = { status: n };
                     if((n === '진행중' || n === '보류') && !t.startDate) updatePayload.startDate = today;
-                    
-                    // 🚨 실시간 조각 업데이트
                     await updateDoc(doc(firestoreDB, "tasks", String(taskId)), updatePayload);
                     return;
                 }
             }
             
             if(target.id==='select-weekly'){reportState.selectedWeek=target.value;renderReportContent();} if(target.id==='select-monthly'){reportState.selectedMonth=target.value;renderReportContent();}
-            if(target.classList.contains('remark-text')){const r=db.reportRemarks[target.closest('.report-remarks-list').dataset.remarkKey].find(x=>x.id===Number(target.closest('.sub-item-row').dataset.subId));if(r){r.text=target.value;target.setAttribute('value',target.value);}}
+            if(target.classList.contains('remark-text')){
+                const rKey = target.closest('.report-remarks-list').dataset.remarkKey;
+                const arr = globalReportRemarks[rKey] || [];
+                const r=arr.find(x=>x.id===Number(target.closest('.sub-item-row').dataset.subId));
+                if(r){
+                    r.text=target.value;
+                    target.setAttribute('value',target.value);
+                    await setDoc(doc(firestoreDB, "reportRemarks", rKey), { remarks: arr });
+                }
+            }
             
             if (target.id === 'monthly-month-select') { monthlyChkState.month = target.value; renderMonthlyChecklist(); }
 
@@ -1756,7 +1748,7 @@
             if(chk){
                 const isMonthly = chk.dataset.isMonthly === 'true';
                 const uid = getCurrentUserId();
-                const l = isMonthly ? db.monthlyChecklists.find(x=>x.id===Number(chk.dataset.chkId)) : db.checklists.find(x=>x.id===Number(chk.dataset.chkId));
+                const l = isMonthly ? globalMonthlyChecklists.find(x=>x.id===Number(chk.dataset.chkId)) : globalChecklists.find(x=>x.id===Number(chk.dataset.chkId));
                 if(l){
                     if(target.classList.contains('chk-checkbox')){
                         const i=l.items.find(x=>x.id===Number(target.closest('.chk-item-row').dataset.itemId));
@@ -1764,23 +1756,24 @@
                             i.isChecked=target.checked; 
                             if(i.isChecked){ target.closest('.chk-item-row').classList.add('completed'); if(l.items.length>0&&l.items.every(x=>x.isChecked)) showToast('완료하셨습니다!'); }
                             else{ target.closest('.chk-item-row').classList.remove('completed'); }
-                            saveDB(db); 
-                            isMonthly ? renderMonthlyChecklist() : renderChecklist();
+                            
+                            await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(l.id)), { items: l.items });
                         }
                     }
                     if(target.classList.contains('monthly-item-status')) {
                         const i=l.items.find(x=>x.id===Number(target.closest('.chk-item-row').dataset.itemId));
                         if(i){ 
                             i.status = target.value; 
-                            syncFutureItemEdit(db, uid, monthlyChkState.month, l.syncGroupId||l.id, i);
-                            await saveDB(db); 
+                            await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(l.id)), { items: l.items });
+                            syncFutureItemEdit(uid, monthlyChkState.month, l.syncGroupId||l.id, i);
                         }
                     }
                 }
             }
             
             const tr = target.closest('tr');
-            if (tr && tr.dataset.userId) {
+            const db = getDB();
+            if (tr && tr.dataset.userId && db) {
                 const user = db.users.find(u => u.id === tr.dataset.userId);
                 if (user) {
                     if (target.classList.contains('admin-edit-name')) user.name = target.value;
@@ -1788,9 +1781,9 @@
                     if (target.classList.contains('admin-edit-group')) user.group = target.value;
                     if (target.classList.contains('admin-edit-role')) { user.role = target.value; if(user.role === 'admin' && !user.menus.includes('admin')) user.menus.push('admin'); }
                     if (target.classList.contains('admin-menu-chk')) { const v = target.value; if (target.checked) { if (!user.menus.includes(v)) user.menus.push(v); } else { user.menus = user.menus.filter(m => m !== v); } }
+                    saveDB(db);
                 }
             }
-            saveDB(db);
         });
 
         // =====================================================================
