@@ -428,19 +428,31 @@
             catch (e) { console.error("데이터 저장 오류:", e); }
         }
 
-        /* 🚨 실시간 업데이트 발생 시 화면 다시 그리기 (스마트 렌더링) */
+        /* 🚨 실시간 업데이트 발생 시 화면 스마트 다시 그리기 (포커스 & 드래그 보호) */
         function triggerRefreshIfActive(targetMenu) {
             const activeNav = document.querySelector('.nav-item.active');
             if (!activeNav) return;
             
             if (activeNav.dataset.target === targetMenu) {
-                // 사용자가 타자를 치는 중이면 화면 갱신 보류
-                const activeTag = document.activeElement ? document.activeElement.tagName : '';
-                if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') {
+                // 1. 드래그 중이면 화면 갱신 보류 (끊김 방지)
+                if (window.isDragging) {
                     window.pendingRealtimeUpdate = true;
-                    // 알림이 너무 자주 뜨지 않게 조절
+                    return;
+                }
+
+                // 2. 사용자가 실제 텍스트를 입력 중인지 확인 (체크박스/버튼 제외)
+                const el = document.activeElement;
+                const activeTag = el ? el.tagName : '';
+                const isTextInput = activeTag === 'TEXTAREA' || 
+                                    (activeTag === 'INPUT' && ['text', 'date', 'month', 'password', 'search'].includes(el.type));
+                
+                // 모달창이 닫혀 보이지 않는 상태라면 포커스가 있어도 무시 (갱신 허용)
+                const isHidden = el && el.closest('.hidden') !== null;
+
+                if (isTextInput && !isHidden) {
+                    window.pendingRealtimeUpdate = true;
                     if(!window.toastTimeout) {
-                        showToast("💡 다른 유저가 업데이트했습니다. (입력 완료 시 반영)");
+                        showToast("💡 실시간 업데이트 대기 중... (입력 완료 후 바탕 클릭 시 반영)");
                         window.toastTimeout = setTimeout(()=> { window.toastTimeout = null; }, 3000);
                     }
                 } else {
@@ -512,33 +524,42 @@
                     await saveDB(globalDB);
                 }
 
-                // 🚨 2. 모든 컬렉션에 실시간 감시망(onSnapshot) 부착 완료!
+                // 🚨 2. 모든 컬렉션에 실시간 감시망(onSnapshot) 부착 완료 (자체 딜레이 제거하여 0.1초 반응)
+                
+                // 설정 및 유저 데이터 실시간 감시 (AppDB)
+                onSnapshot(docRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        if(globalDB) {
+                            globalDB.users = data.users || defaultDB.users;
+                            globalDB.settings = data.settings || defaultDB.settings;
+                            globalDB.groups = data.groups || defaultDB.groups;
+                            triggerRefreshIfActive('admin');
+                        }
+                    }
+                });
+
                 onSnapshot(collection(firestoreDB, "tasks"), (snapshot) => {
-                    if (snapshot.metadata.hasPendingWrites) return;
                     globalTasks = snapshot.docs.map(d => d.data()).sort((a, b) => (a.order || 0) - (b.order || 0));
                     triggerRefreshIfActive('dashboard');
                 });
 
                 onSnapshot(collection(firestoreDB, "checklists"), (snapshot) => {
-                    if (snapshot.metadata.hasPendingWrites) return;
                     globalChecklists = snapshot.docs.map(d => d.data()).sort((a, b) => b.id - a.id);
                     triggerRefreshIfActive('checklist');
                 });
 
                 onSnapshot(collection(firestoreDB, "monthlyChecklists"), (snapshot) => {
-                    if (snapshot.metadata.hasPendingWrites) return;
                     globalMonthlyChecklists = snapshot.docs.map(d => d.data()).sort((a, b) => b.id - a.id);
                     triggerRefreshIfActive('monthly');
                 });
 
                 onSnapshot(collection(firestoreDB, "reports"), (snapshot) => {
-                    if (snapshot.metadata.hasPendingWrites) return;
                     globalReports = snapshot.docs.map(d => d.data()).sort((a, b) => b.id - a.id);
                     triggerRefreshIfActive('report');
                 });
 
                 onSnapshot(collection(firestoreDB, "reportRemarks"), (snapshot) => {
-                    if (snapshot.metadata.hasPendingWrites) return;
                     globalReportRemarks = {};
                     snapshot.forEach(d => { globalReportRemarks[d.id] = d.data().remarks || []; });
                     triggerRefreshIfActive('report');
@@ -552,11 +573,15 @@
             }
         }
 
-        /* 🚨 포커스가 빠져나갔을 때 밀려있던 실시간 렌더링 처리 */
+        /* 🚨 포커스가 빠져나갔거나 드래그가 끝났을 때 밀려있던 실시간 렌더링 처리 */
         document.addEventListener('focusout', (e) => {
             setTimeout(() => {
-                const activeTag = document.activeElement ? document.activeElement.tagName : '';
-                if (window.pendingRealtimeUpdate && activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
+                const el = document.activeElement;
+                const activeTag = el ? el.tagName : '';
+                const isTextInput = activeTag === 'TEXTAREA' || (activeTag === 'INPUT' && ['text', 'date', 'month', 'password', 'search'].includes(el.type));
+                const isHidden = el && el.closest('.hidden') !== null;
+
+                if (window.pendingRealtimeUpdate && (!isTextInput || isHidden) && !window.isDragging) {
                     window.pendingRealtimeUpdate = false;
                     const activeNav = document.querySelector('.nav-item.active');
                     if (activeNav) {
@@ -591,6 +616,7 @@
                 document.getElementById('pw-change-modal').classList.add('hidden');
                 document.getElementById('task-complete-modal')?.classList.add('hidden');
                 document.getElementById('admin-user-view-modal')?.classList.add('hidden');
+                if(document.activeElement) document.activeElement.blur();
             }
             if (e.target.tagName === 'TEXTAREA' && e.key === 'Enter') {
                 if (!e.shiftKey) { e.preventDefault(); e.target.blur(); }
@@ -722,7 +748,10 @@
         document.getElementById('btn-logout').addEventListener('click', () => { 
             sessionStorage.removeItem('currentUser'); sessionStorage.removeItem('adminGhosting'); location.reload(); 
         });
-        document.getElementById('btn-close-report-modal').addEventListener('click', () => document.getElementById('report-modal').classList.add('hidden'));
+        document.getElementById('btn-close-report-modal').addEventListener('click', () => {
+            document.getElementById('report-modal').classList.add('hidden');
+            if(document.activeElement) document.activeElement.blur();
+        });
         
         document.getElementById('btn-save-pdf').addEventListener('click', () => {
             const element = document.getElementById('report-modal-body');
@@ -759,7 +788,11 @@
             } else { document.getElementById('content-area').innerHTML = `<h2>접근 가능한 메뉴가 없습니다.</h2>`; }
         }
 
-        document.getElementById('btn-close-notice').addEventListener('click', () => { if (document.getElementById('chk-hide-today').checked) localStorage.setItem('hideNoticeUntil', new Date().toLocaleDateString()); document.getElementById('notice-modal').classList.add('hidden'); });
+        document.getElementById('btn-close-notice').addEventListener('click', () => { 
+            if (document.getElementById('chk-hide-today').checked) localStorage.setItem('hideNoticeUntil', new Date().toLocaleDateString()); 
+            document.getElementById('notice-modal').classList.add('hidden'); 
+            if(document.activeElement) document.activeElement.blur();
+        });
 
         if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-mode');
         document.getElementById('btn-toggle-dark').addEventListener('click', () => {
@@ -1237,7 +1270,7 @@
             if (target.id === 'btn-next-month' || target.closest('#btn-next-month')) { monthlyChkState.month = getNextMonthStr(monthlyChkState.month); document.getElementById('monthly-month-select').value = monthlyChkState.month; renderMonthlyChecklist(); }
             
             if (target.id === 'btn-add-task') { document.getElementById('new-task-category').value = '기본업무'; document.getElementById('new-task-title').value = ''; document.getElementById('new-task-status').value = '대기'; document.getElementById('new-task-start').value = ''; document.getElementById('new-task-end').value = ''; document.getElementById('task-add-modal').classList.remove('hidden'); resizeAllTextareas(); document.getElementById('new-task-category').focus(); }
-            if (target.id === 'btn-close-task-modal') document.getElementById('task-add-modal').classList.add('hidden');
+            if (target.id === 'btn-close-task-modal') { document.getElementById('task-add-modal').classList.add('hidden'); if(document.activeElement) document.activeElement.blur(); }
             if (target.id === 'btn-save-new-task') {
                 const title = document.getElementById('new-task-title').value.trim(); if (!title) return alert('업무 제목을 입력해주세요.');
                 const category = document.getElementById('new-task-category').value.trim() || '기본업무'; const status = document.getElementById('new-task-status').value;
@@ -1249,10 +1282,12 @@
                 const uid = getCurrentUserId(); const newId = Date.now();
                 const newTask = { id: newId, userId: uid, category: category, title: title, status: status, startDate: startDate, endDate: endDate, subItems: [], isOpen: true, order: 0 };
                 await setDoc(doc(firestoreDB, "tasks", String(newId)), newTask);
-                document.getElementById('task-add-modal').classList.add('hidden'); dashState.tab = (status === '완료') ? 'completed' : 'active';
+                document.getElementById('task-add-modal').classList.add('hidden'); 
+                if(document.activeElement) document.activeElement.blur();
+                dashState.tab = (status === '완료') ? 'completed' : 'active';
             }
             
-            if (target.id === 'btn-cancel-complete') document.getElementById('task-complete-modal').classList.add('hidden');
+            if (target.id === 'btn-cancel-complete') { document.getElementById('task-complete-modal').classList.add('hidden'); if(document.activeElement) document.activeElement.blur(); }
             if (target.id === 'btn-confirm-complete') {
                 const taskId = Number(document.getElementById('task-complete-modal').dataset.taskId);
                 const t = globalTasks.find(x => x.id === taskId);
@@ -1261,6 +1296,7 @@
                     await updateDoc(doc(firestoreDB, "tasks", String(taskId)), { status: '완료', endDate: dateVal, startDate: t.startDate || dateVal });
                 }
                 document.getElementById('task-complete-modal').classList.add('hidden');
+                if(document.activeElement) document.activeElement.blur();
             }
 
             if (target.classList.contains('btn-toggle') && target.closest('.task-card')) { 
@@ -1418,7 +1454,7 @@
             }
             if (target.classList.contains('btn-del-user')) { if(target.disabled) return; const uid = target.closest('tr').dataset.userId; if (confirm(`삭제?`)) { const db = getDB(); db.users = db.users.filter(u => u.id !== uid); saveDB(db); initAdmin(document.getElementById('content-area')); } }
             if (target.classList.contains('btn-change-pw')) { targetUserIdForPw = target.closest('tr') ? target.closest('tr').dataset.userId : getCurrentUserId(); document.getElementById('new-pw-input').value = ''; document.getElementById('pw-change-modal').classList.remove('hidden'); document.getElementById('new-pw-input').focus(); }
-            if (target.id === 'btn-close-pw-modal') { document.getElementById('pw-change-modal').classList.add('hidden'); targetUserIdForPw = null; }
+            if (target.id === 'btn-close-pw-modal') { document.getElementById('pw-change-modal').classList.add('hidden'); targetUserIdForPw = null; if(document.activeElement) document.activeElement.blur(); }
             if (target.id === 'btn-save-pw') {
                 const newPw = document.getElementById('new-pw-input').value.trim(); if (!newPw) return alert('새 비밀번호를 입력하세요.');
                 const db = getDB(); const userToUpdate = db.users.find(u => u.id === targetUserIdForPw);
@@ -1428,6 +1464,7 @@
                     if (currentUser && currentUser.id === targetUserIdForPw) { currentUser.pw = newPw; sessionStorage.setItem('currentUser', JSON.stringify(currentUser)); }
                 }
                 document.getElementById('pw-change-modal').classList.add('hidden');
+                if(document.activeElement) document.activeElement.blur();
             }
             
             if (target.classList.contains('btn-view-user')) {
@@ -1463,6 +1500,7 @@
 
         document.addEventListener('dragstart', (e) => {
             if (e.target.classList) {
+                window.isDragging = true;
                 if (e.target.classList.contains('chk-item-row')) { draggedItem = e.target; dragType = 'item'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('item-dragging'), 0); } 
                 else if (e.target.classList.contains('chk-card') || e.target.classList.contains('task-card')) { draggedItem = e.target; dragType = 'card'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('card-dragging'), 0); }
                 else if (e.target.classList.contains('memo-row')) { draggedItem = e.target; dragType = 'memo'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('memo-dragging'), 0); }
@@ -1587,8 +1625,13 @@
                 }
             }
             draggedItem.classList.remove('item-dragging', 'card-dragging', 'memo-dragging'); draggedItem = null; dragType = null;
+            window.isDragging = false;
         });
-        document.addEventListener('dragend', (e) => { if (draggedItem) draggedItem.classList.remove('item-dragging', 'card-dragging', 'memo-dragging'); draggedItem = null; dragType = null; stopAutoScroll(); });
+        document.addEventListener('dragend', (e) => { 
+            if (draggedItem) draggedItem.classList.remove('item-dragging', 'card-dragging', 'memo-dragging'); 
+            draggedItem = null; dragType = null; stopAutoScroll(); 
+            window.isDragging = false;
+        });
 
         /* -----------------------------------------
            통합 이벤트 위임 (Input & 실시간 변경)
@@ -1669,12 +1712,14 @@
         document.body.addEventListener('change', async (e) => {
             const target = e.target; 
             
+            // 🚨 복원 파일 업로드 처리
             if (target.id === 'backup-file-input') {
                 const file = target.files[0];
                 if (!file) return;
 
                 if (!confirm("🚨 [경고] 복원을 진행하면 현재 시스템의 모든 데이터가 업로드한 파일의 내용으로 완전히 덮어씌워집니다.\n\n정말 시스템을 복원하시겠습니까?")) {
-                    target.value = ''; return;
+                    target.value = ''; 
+                    return;
                 }
 
                 const reader = new FileReader();
@@ -1685,7 +1730,7 @@
                         
                         isDBConnected = true; 
                         
-                        // 분할 컬렉션 복원 로직
+                        // 분할 컬렉션 복원 로직 (즉각 서버 전송)
                         if (parsedData.tasks) for (let t of parsedData.tasks) await setDoc(doc(firestoreDB, "tasks", String(t.id)), t);
                         if (parsedData.checklists) for (let t of parsedData.checklists) await setDoc(doc(firestoreDB, "checklists", String(t.id)), t);
                         if (parsedData.monthlyChecklists) for (let t of parsedData.monthlyChecklists) await setDoc(doc(firestoreDB, "monthlyChecklists", String(t.id)), t);
@@ -1700,7 +1745,9 @@
                         
                         alert("✅ 데이터 복원이 성공적으로 완료되었습니다.\n시스템을 다시 시작합니다.");
                         location.reload(); 
-                    } catch (error) { alert("파일을 읽는 중 오류가 발생했습니다: " + error.message); }
+                    } catch (error) {
+                        alert("파일을 읽는 중 오류가 발생했습니다: " + error.message);
+                    }
                     target.value = ''; 
                 };
                 reader.readAsText(file);
