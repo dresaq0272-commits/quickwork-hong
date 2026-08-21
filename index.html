@@ -87,7 +87,6 @@
         .btn-icon { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--color-text-sub); transition: color 0.2s; padding: 0.25rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
         .btn-icon:hover { color: #EF4444; background: #FEE2E2; }
         
-        /* Textarea 다중 줄바꿈 지원 */
         textarea.input-text, textarea.inline-input { overflow-y: hidden; resize: none; box-sizing: border-box; font-family: inherit; line-height: 1.5; vertical-align: middle; word-break: keep-all; overflow-wrap: break-word; white-space: pre-wrap; width: 100%; }
         textarea.inline-input { min-height: 1.8rem; padding-top: 0.2rem; padding-bottom: 0.2rem; }
         
@@ -179,11 +178,13 @@
         /* 🚨 업무 캘린더 전용 CSS */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--color-border); border: 1px solid var(--color-border); border-radius: var(--border-radius); overflow: hidden; margin-top: 1rem; }
         .cal-day-name { background: var(--color-primary-light); text-align: center; padding: 0.75rem 0.5rem; font-weight: 800; color: var(--color-text-main); font-size: 0.95rem; }
-        .cal-cell { background: var(--color-surface); min-height: 130px; padding: 0.5rem; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+        .cal-cell { background: var(--color-surface); min-height: 130px; padding: 0.5rem; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; transition: background-color 0.2s; }
+        .cal-cell:hover { background: var(--color-bg); }
         .cal-date { font-size: 0.9rem; font-weight: 700; color: var(--color-text-sub); margin-bottom: 6px; text-align: right; padding: 2px; }
         .cal-date.today { color: white; background: var(--color-primary); border-radius: 50%; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; align-self: flex-end; }
-        .cal-task-badge { font-size: 0.8rem; padding: 0.3rem 0.5rem; border-radius: 4px; color: white; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; transition: transform 0.1s; }
+        .cal-task-badge { font-size: 0.8rem; padding: 0.3rem 0.5rem; border-radius: 4px; color: white; cursor: grab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; transition: transform 0.1s; }
         .cal-task-badge:hover { filter: brightness(0.9); transform: translateY(-1px); }
+        .cal-task-badge:active { cursor: grabbing; }
         .cal-cell.other-month { background: var(--color-bg); opacity: 0.5; }
         
         #task-edit-modal .modal-content { max-width: 650px; background: transparent; border: none; padding: 0; box-shadow: none; }
@@ -546,7 +547,7 @@
                         if (!u.group) { u.group = '운영팀'; needsAppDBSave = true; }
                     });
 
-                    // 🚨 모든 세팅 변경 후 딱 1번만 안전하게 저장
+                    // 모든 세팅 변경 후 딱 1번만 안전하게 저장
                     if (needsAppDBSave) await saveDB(globalDB);
 
                 } else {
@@ -794,7 +795,7 @@
                 if(user.status !== 'approved') return alert('현재 관리자 승인 대기중이거나 차단된 계정입니다.');
                 if (document.getElementById('save-id').checked) localStorage.setItem('savedId', id); else localStorage.removeItem('savedId');
                 
-                // 🚨 로그인 시 브라우저 세션에 캘린더 권한 강제 갱신 주입 (버그 방어)
+                // 로그인 시 브라우저 세션에 캘린더 권한 강제 갱신 주입 (버그 방어)
                 if (!user.menus.includes('calendar')) user.menus.splice(1, 0, 'calendar');
                 sessionStorage.setItem('currentUser', JSON.stringify(user)); 
                 enterApp(user);
@@ -816,7 +817,7 @@
         });
 
         function enterApp(user) {
-            // 🚨 앱 진입 시 세션 권한에 캘린더 강제 반영 (기존 유저 로그인 오류 방지)
+            // 앱 진입 시 세션 권한에 캘린더 강제 반영 (기존 유저 로그인 오류 방지)
             if (!user.menus.includes('calendar')) {
                 user.menus.splice(1, 0, 'calendar');
                 sessionStorage.setItem('currentUser', JSON.stringify(user));
@@ -960,7 +961,7 @@
         }
 
         /* =========================================
-           🚨 신규 추가: 업무 캘린더 로직
+           🚨 신규 추가: 업무 캘린더 단일표기 및 드래그 로직
            ========================================= */
         let calState = { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
         function initCalendar(container) {
@@ -1009,9 +1010,16 @@
                     cellClass += ' other-month';
                     let d = prevLastDate - firstDay + i + 1;
                     dayDisplay = d;
+                    let pm = calState.month - 1; let py = calState.year;
+                    if (pm < 1) { pm = 12; py--; }
+                    cellDateStr = `${py}-${String(pm).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                 } else if (dateNum > lastDate) {
                     cellClass += ' other-month';
-                    dayDisplay = nextMonthDate++;
+                    dayDisplay = nextMonthDate;
+                    let nm = calState.month + 1; let ny = calState.year;
+                    if (nm > 12) { nm = 1; ny++; }
+                    cellDateStr = `${ny}-${String(nm).padStart(2,'0')}-${String(nextMonthDate).padStart(2,'0')}`;
+                    nextMonthDate++;
                 } else {
                     cellDateStr = `${calState.year}-${String(calState.month).padStart(2,'0')}-${String(dateNum).padStart(2,'0')}`;
                     let isToday = (cellDateStr === todayStr);
@@ -1022,21 +1030,40 @@
                 let tasksHtml = '';
                 if (cellDateStr) {
                     const dayTasks = myTasks.filter(t => {
-                        if(t.status === '대기' || t.status === '보류' || !t.startDate) return false;
-                        const start = t.startDate;
-                        const end = (t.status === '완료' && t.endDate) ? t.endDate : (t.endDate ? t.endDate : '9999-12-31');
-                        return cellDateStr >= start && cellDateStr <= end;
+                        if (!t.startDate && t.status !== '완료') return false; 
+                        
+                        // 🚨 1. 단일 일자 표기 로직 (완료건은 종료일, 진행/보류/대기건은 시작일)
+                        if (t.status === '완료') {
+                            return t.endDate === cellDateStr;
+                        } else {
+                            return t.startDate === cellDateStr;
+                        }
+                    });
+
+                    // 🚨 2. 사용자 정의 순서 정렬
+                    dayTasks.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+                    // 🚨 3. 완료 건을 가장 아래로 정렬 (후순위)
+                    dayTasks.sort((a, b) => {
+                        if (a.status === '완료' && b.status !== '완료') return 1;
+                        if (a.status !== '완료' && b.status === '완료') return -1;
+                        return 0;
                     });
 
                     tasksHtml = dayTasks.map(t => {
-                        let color = t.status === '완료' ? 'var(--status-done)' : (t.status === '진행중' ? 'var(--status-ing)' : (t.status === '보류' ? 'var(--status-hold)' : 'var(--status-wait)'));
-                        return `<div class="cal-task-badge" data-task-id="${t.id}" style="background-color:${color};" title="${t.title}">${t.title}</div>`;
+                        // 🚨 4. 완료 건 회색(#94A3B8) 처리 및 드래그 엔진용 속성 추가
+                        let color = t.status === '완료' ? '#94A3B8' : (t.status === '진행중' ? 'var(--status-ing)' : (t.status === '보류' ? 'var(--status-hold)' : 'var(--status-wait)'));
+                        let extraStyle = t.status === '완료' ? 'opacity: 0.8;' : '';
+                        return `<div class="cal-task-badge" draggable="true" data-task-id="${t.id}" style="background-color:${color}; ${extraStyle}" title="${t.title}">${t.title}</div>`;
                     }).join('');
-                } else {
+                }
+
+                if(i < firstDay || (i >= firstDay && dayDisplay.toString().indexOf('<div') === -1)) {
                     dayDisplay = `<div style="display:flex; justify-content:flex-end;"><span class="cal-date">${dayDisplay}</span></div>`;
                 }
 
-                html += `<div class="${cellClass}">${dayDisplay}${tasksHtml}</div>`;
+                // 드래그 목적지 인식을 위해 data-date 삽입
+                html += `<div class="${cellClass}" data-date="${cellDateStr}">${dayDisplay}${tasksHtml}</div>`;
             }
             html += '</div>';
             container.innerHTML = html;
@@ -1217,7 +1244,7 @@
         }
 
         /* =========================================
-           5-1. 일반 체크리스트 로직 (🚨 독립된 globalChecklists 연동)
+           5-1. 일반 체크리스트 로직
            ========================================= */
         let chkState = { search: '' };
         function initChecklist(container) {
@@ -1258,7 +1285,7 @@
         }
 
         /* =========================================
-           5-2. 매월 체크리스트 로직 (🚨 글로벌 동기화 엔진 픽스)
+           5-2. 매월 체크리스트 로직
            ========================================= */
         let monthlyChkState = { search: '', month: getCurrentMonthStr() };
         function initMonthlyChecklist(container) {
@@ -1277,80 +1304,6 @@
                 <div id="monthly-checklist-container"></div>
             `;
             renderMonthlyChecklist();
-        }
-
-        function getNextMonthStr(monthStr) {
-            const [y, m] = monthStr.split('-').map(Number);
-            const date = new Date(y, m, 1);
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        }
-        function getPrevMonthStr(monthStr) {
-            const [y, m] = monthStr.split('-').map(Number);
-            const date = new Date(y, m - 2, 1);
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        }
-
-        // 🚨 매월 데이터 미래 월 자동 생성 엔진 (독립 컬렉션 아키텍처에 맞게 완벽 픽스)
-        async function ensureMonthInitialized(db, uid, targetMonth) {
-            if(!db) return;
-            const initKey = `${uid}_${targetMonth}`;
-            if (db.monthlyChecklistInit && db.monthlyChecklistInit[initKey]) return;
-
-            const initKeys = Object.keys(db.monthlyChecklistInit || {})
-                                   .filter(k => k.startsWith(`${uid}_`))
-                                   .map(k => k.split('_')[1])
-                                   .sort();
-
-            let lastInitMonth = null;
-            for (let i = initKeys.length - 1; i >= 0; i--) {
-                if (initKeys[i] < targetMonth) {
-                    lastInitMonth = initKeys[i];
-                    break;
-                }
-            }
-
-            if (!db.monthlyChecklistInit) db.monthlyChecklistInit = {};
-
-            if (!lastInitMonth) {
-                db.monthlyChecklistInit[initKey] = true;
-                await updateDoc(doc(firestoreDB, "WorkSystem", DB_KEY), { monthlyChecklistInit: db.monthlyChecklistInit });
-                return;
-            }
-
-            let curr = lastInitMonth;
-            while (curr < targetMonth) {
-                const nextMonth = getNextMonthStr(curr);
-                
-                // 옛날 덩어리(db.monthlyChecklists) 대신 독립 데이터인 globalMonthlyChecklists를 바라보도록 수정
-                const prevRecords = globalMonthlyChecklists.filter(c => c.userId === uid && c.month === curr);
-                
-                if (prevRecords.length > 0) {
-                    for (let group of prevRecords) {
-                        let newItems = [];
-                        group.items.forEach(item => {
-                            if (item.status === '당월') return; 
-                            let newItem = { ...item, id: Date.now() + Math.random(), syncItemId: item.syncItemId, isChecked: false };
-                            if (item.status === '이월') newItem.status = '당월';
-                            newItem.memos = [...(item.memos || [])]; 
-                            newItems.push(newItem);
-                        });
-                        
-                        const newGroup = {
-                            ...group,
-                            id: Date.now() + Math.random(),
-                            syncGroupId: group.syncGroupId, 
-                            month: nextMonth,
-                            items: newItems,
-                            order: group.order || -Date.now()
-                        };
-                        await setDoc(doc(firestoreDB, "monthlyChecklists", String(newGroup.id)), newGroup);
-                    }
-                }
-                
-                db.monthlyChecklistInit[`${uid}_${nextMonth}`] = true;
-                curr = nextMonth;
-            }
-            await updateDoc(doc(firestoreDB, "WorkSystem", DB_KEY), { monthlyChecklistInit: db.monthlyChecklistInit });
         }
 
         async function renderMonthlyChecklist() {
@@ -1796,6 +1749,8 @@
                 else if (e.target.classList.contains('chk-card') || e.target.classList.contains('task-card')) { draggedItem = e.target; dragType = 'card'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('card-dragging'), 0); }
                 else if (e.target.classList.contains('memo-row')) { draggedItem = e.target; dragType = 'memo'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('memo-dragging'), 0); }
                 else if (e.target.classList.contains('sub-item-row')) { draggedItem = e.target; dragType = 'subItem'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('memo-dragging'), 0); }
+                // 🚨 캘린더 배지 드래그 시작 추가
+                else if (e.target.classList.contains('cal-task-badge')) { draggedItem = e.target; dragType = 'cal-badge'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('item-dragging'), 0); }
             }
         });
         
@@ -1825,6 +1780,17 @@
                 if (row && row !== draggedItem && row.parentNode === draggedItem.parentNode) {
                     const bounding = row.getBoundingClientRect(); const offset = bounding.y + (bounding.height / 2);
                     if (e.clientY > offset) row.after(draggedItem); else row.before(draggedItem);
+                }
+            }
+            // 🚨 캘린더 배지 드래그 오버 로직 추가
+            else if (dragType === 'cal-badge') {
+                const badge = e.target.closest('.cal-task-badge');
+                const cell = e.target.closest('.cal-cell');
+                if (badge && badge !== draggedItem && badge.parentNode === draggedItem.parentNode) {
+                    const bounding = badge.getBoundingClientRect(); const offset = bounding.y + (bounding.height / 2);
+                    if (e.clientY > offset) badge.after(draggedItem); else badge.before(draggedItem);
+                } else if (cell && cell !== draggedItem.parentNode && !e.target.closest('.cal-task-badge')) {
+                    cell.appendChild(draggedItem);
                 }
             }
         });
@@ -1915,6 +1881,35 @@
                     }
                 }
             }
+            // 🚨 캘린더 배지 드롭 시 날짜 및 순서 업데이트 로직
+            else if (dragType === 'cal-badge') {
+                const cell = draggedItem.closest('.cal-cell');
+                if (cell) {
+                    const dateStr = cell.dataset.date;
+                    const taskId = Number(draggedItem.dataset.taskId);
+                    const taskToUpdate = globalTasks.find(t => t.id === taskId);
+
+                    if (taskToUpdate && dateStr) {
+                        let updatePayload = {};
+                        let isDateChanged = false;
+
+                        if (taskToUpdate.status === '완료') {
+                            if (taskToUpdate.endDate !== dateStr) { updatePayload.endDate = dateStr; isDateChanged = true; }
+                        } else {
+                            if (taskToUpdate.startDate !== dateStr) { updatePayload.startDate = dateStr; isDateChanged = true; }
+                        }
+
+                        if (isDateChanged) await updateDoc(doc(firestoreDB, "tasks", String(taskId)), updatePayload);
+
+                        const currentNodes = Array.from(cell.querySelectorAll('.cal-task-badge'));
+                        for (let i = 0; i < currentNodes.length; i++) {
+                            const id = Number(currentNodes[i].dataset.taskId);
+                            await updateDoc(doc(firestoreDB, "tasks", String(id)), { order: i });
+                        }
+                    }
+                }
+            }
+            
             draggedItem.classList.remove('item-dragging', 'card-dragging', 'memo-dragging'); draggedItem = null; dragType = null;
             window.isDragging = false;
         });
@@ -2140,4 +2135,3 @@
     </script>
 </body>
 </html>
-]
