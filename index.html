@@ -188,7 +188,7 @@
         .cal-task-badge:active { cursor: grabbing; }
         .cal-cell.other-month { background: var(--color-bg); opacity: 0.5; }
         
-        /* 🚨 캘린더 모달 UI 디자인 완벽 개선 (X버튼 위치 수정) */
+        /* 🚨 캘린더 모달 UI 디자인 (X버튼 위치 수정 적용됨) */
         #task-edit-modal .modal-content { 
             max-width: 650px; 
             background: var(--color-bg); 
@@ -326,7 +326,7 @@
         </div>
     </div>
     
-    <!-- 🚨 캘린더에서 업무를 수정하는 전용 팝업 (X버튼 위치 완벽 개선) -->
+    <!-- 🚨 캘린더에서 업무를 수정하는 전용 팝업 (X버튼 위치 완벽 개선 적용됨) -->
     <div id="task-edit-modal" class="modal-overlay hidden" style="z-index: 1050;">
         <div class="modal-content">
             <button id="btn-close-task-edit">✕</button>
@@ -349,7 +349,7 @@
                 <div style="flex:1;"><label>완료일</label><input type="date" id="new-task-end" class="input-text"></div>
             </div>
             
-            <!-- 🚨 신규 추가: 업무 생성 시 하위 항목까지 한 번에 등록하는 UI -->
+            <!-- 신규 추가: 업무 생성 시 하위 항목까지 한 번에 등록하는 UI -->
             <div class="form-group" style="margin-top: 1.5rem;">
                 <label>하위 항목 (선택)</label>
                 <div id="new-task-subitems-container" style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom: 0.5rem;"></div>
@@ -730,6 +730,30 @@
         });
 
         /* =========================================
+           🚨 캘린더 셀 더블클릭 로직 추가 (새 업무 추가)
+           ========================================= */
+        document.body.addEventListener('dblclick', (e) => {
+            const cell = e.target.closest('.cal-cell');
+            if (cell && !e.target.closest('.cal-task-badge')) {
+                // 더블클릭 시 글자 드래그 선택되는 현상 방지
+                if(window.getSelection) { window.getSelection().removeAllRanges(); }
+                
+                const dateStr = cell.dataset.date;
+                if (dateStr) {
+                    document.getElementById('new-task-category').value = '기본업무';
+                    document.getElementById('new-task-title').value = '';
+                    document.getElementById('new-task-status').value = '진행중'; // 🚨 진행중으로 자동 세팅
+                    document.getElementById('new-task-start').value = dateStr;   // 🚨 해당 날짜로 시작일 자동 세팅
+                    document.getElementById('new-task-end').value = '';
+                    document.getElementById('new-task-subitems-container').innerHTML = '';
+                    document.getElementById('task-add-modal').classList.remove('hidden');
+                    resizeAllTextareas();
+                    document.getElementById('new-task-title').focus(); // 🚨 제목 바로 입력 가능하도록 포커스
+                }
+            }
+        });
+
+        /* =========================================
            🚨 미래 월 자동 연동 (Cascading Updates) 헬퍼 
            ========================================= */
         function getMonthDiff(m1, m2) {
@@ -1014,7 +1038,7 @@
         }
 
         /* =========================================
-           🚨 캘린더 단일표기 및 드래그 로직
+           🚨 신규 추가: 업무 캘린더 단일표기 및 드래그 로직
            ========================================= */
         let calState = { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
         function initCalendar(container) {
@@ -1024,7 +1048,7 @@
                         <h2 style="font-size:1.5rem; font-weight:800; color:var(--color-text-main);">📆 업무 캘린더</h2>
                         <div style="display:flex; align-items:center; gap:0.5rem;">
                             <button class="btn-icon btn-cal-prev" style="background:var(--color-primary-light); color:var(--color-primary);">◀</button>
-                            <span style="font-size:1.2rem; font-weight:800; min-width:100px; text-align:center; color:var(--color-text-main);">${calState.year}년 ${calState.month}월</span>
+                            <span id="cal-month-display" style="font-size:1.2rem; font-weight:800; min-width:100px; text-align:center; color:var(--color-text-main);">${calState.year}년 ${calState.month}월</span>
                             <button class="btn-icon btn-cal-next" style="background:var(--color-primary-light); color:var(--color-primary);">▶</button>
                         </div>
                     </div>
@@ -1040,6 +1064,11 @@
 
         function renderCalendar() {
             const container = document.getElementById('calendar-container'); if(!container) return;
+            
+            // 🚨 캘린더 상단 연/월 텍스트 실시간 갱신 로직 추가
+            const monthDisplay = document.getElementById('cal-month-display');
+            if(monthDisplay) monthDisplay.textContent = `${calState.year}년 ${calState.month}월`;
+            
             const uid = getCurrentUserId();
             const firstDay = new Date(calState.year, calState.month - 1, 1).getDay();
             const lastDate = new Date(calState.year, calState.month, 0).getDate();
@@ -1088,6 +1117,7 @@
                     const dayTasks = myTasks.filter(t => {
                         if (!t.startDate && t.status !== '완료') return false; 
                         
+                        // 단일 일자 표기 로직 (완료건은 종료일, 진행/보류/대기건은 시작일)
                         if (t.status === '완료') {
                             return t.endDate === cellDateStr;
                         } else {
@@ -1095,8 +1125,10 @@
                         }
                     });
 
+                    // 1. 사용자 정의 순서 정렬
                     dayTasks.sort((a, b) => (a.order || 0) - (b.order || 0));
 
+                    // 2. 완료 건을 가장 아래로 정렬 (후순위)
                     dayTasks.sort((a, b) => {
                         if (a.status === '완료' && b.status !== '완료') return 1;
                         if (a.status !== '완료' && b.status === '완료') return -1;
@@ -1104,6 +1136,7 @@
                     });
 
                     tasksHtml = dayTasks.map(t => {
+                        // 완료 건 회색(#94A3B8) 처리 및 드래그 엔진용 속성 추가
                         let color = t.status === '완료' ? '#94A3B8' : (t.status === '진행중' ? 'var(--status-ing)' : (t.status === '보류' ? 'var(--status-hold)' : 'var(--status-wait)'));
                         let extraStyle = t.status === '완료' ? 'opacity: 0.8;' : '';
                         return `<div class="cal-task-badge" draggable="true" data-task-id="${t.id}" style="background-color:${color}; ${extraStyle}" title="${t.title}">${t.title}</div>`;
@@ -1114,6 +1147,7 @@
                     dayDisplay = `<div style="display:flex; justify-content:flex-end;"><span class="cal-date">${dayDisplay}</span></div>`;
                 }
 
+                // 드래그 목적지 인식을 위해 data-date 삽입
                 html += `<div class="${cellClass}" data-date="${cellDateStr}">${dayDisplay}${tasksHtml}</div>`;
             }
             html += '</div>';
@@ -1535,7 +1569,7 @@
             if (target.id === 'btn-prev-month' || target.closest('#btn-prev-month')) { monthlyChkState.month = getPrevMonthStr(monthlyChkState.month); document.getElementById('monthly-month-select').value = monthlyChkState.month; renderMonthlyChecklist(); }
             if (target.id === 'btn-next-month' || target.closest('#btn-next-month')) { monthlyChkState.month = getNextMonthStr(monthlyChkState.month); document.getElementById('monthly-month-select').value = monthlyChkState.month; renderMonthlyChecklist(); }
             
-            // 🚨 새 업무 추가 버튼 
+            // 새 업무 추가 버튼 
             if (target.id === 'btn-add-task') { 
                 document.getElementById('new-task-category').value = '기본업무'; 
                 document.getElementById('new-task-title').value = ''; 
@@ -1549,7 +1583,7 @@
             }
             if (target.id === 'btn-close-task-modal') { document.getElementById('task-add-modal').classList.add('hidden'); if(document.activeElement) document.activeElement.blur(); }
             
-            // 🚨 새 업무에 하위 항목 추가 버튼 클릭 시
+            // 새 업무에 하위 항목 추가 버튼 클릭 시
             if (target.id === 'btn-add-new-task-subitem') {
                 const container = document.getElementById('new-task-subitems-container');
                 const row = document.createElement('div');
@@ -1570,7 +1604,7 @@
                 });
             }
 
-            // 🚨 새 업무 하위 항목 삭제 시
+            // 새 업무 하위 항목 삭제 시
             if (target.classList.contains('btn-remove-new-task-subitem') || target.closest('.btn-remove-new-task-subitem')) {
                 const btn = target.classList.contains('btn-remove-new-task-subitem') ? target : target.closest('.btn-remove-new-task-subitem');
                 btn.closest('.new-task-subitem-row').remove();
@@ -1584,7 +1618,6 @@
                 if ((status === '진행중' || status === '보류' || status === '완료') && !startDate) startDate = today;
                 if (status === '완료' && !endDate) endDate = today;
 
-                // 🚨 추가된 하위 항목들 싹 모아서 배열로 만들기
                 const subItems = [];
                 document.querySelectorAll('.new-task-subitem-input').forEach(input => {
                     const text = input.value.trim();
@@ -1611,7 +1644,6 @@
                 }
                 document.getElementById('task-complete-modal').classList.add('hidden');
                 
-                // 🚨 완료 처리 후 캘린더 팝업창도 자동 스르륵 닫기
                 const editModalBody = document.getElementById('task-edit-modal-body');
                 if (editModalBody && !document.getElementById('task-edit-modal').classList.contains('hidden')) {
                     document.getElementById('task-edit-modal').classList.add('hidden');
@@ -2171,7 +2203,6 @@
                     if((n === '진행중' || n === '보류') && !t.startDate) updatePayload.startDate = today;
                     await updateDoc(doc(firestoreDB, "tasks", String(taskId)), updatePayload);
                     
-                    // 🚨 캘린더 팝업에서 상태를 바꿨다면 팝업창을 즉시 자동으로 닫아줍니다.
                     if(c.closest('#task-edit-modal-body')) {
                         document.getElementById('task-edit-modal').classList.add('hidden');
                     }
