@@ -187,7 +187,7 @@
         .cal-cell.other-month { background: var(--color-bg); opacity: 0.5; }
         
         #task-edit-modal .modal-content { max-width: 650px; background: transparent; border: none; padding: 0; box-shadow: none; }
-        #task-edit-modal .task-card { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--color-primary); }
+        #task-edit-modal .task-card { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--color-primary); background: var(--color-surface); }
 
         /* =========================================
            4. 보고서 레이아웃 (줄바꿈 pre-wrap 지원)
@@ -387,9 +387,7 @@
             <div class="sidebar-header" id="sidebar-title"><span style="font-size: 1.4rem;">💡</span> 시스템 이름</div>
             <ul class="nav-menu">
                 <li class="nav-item active" data-target="dashboard">📊 <span id="menu-name-dashboard">업무 대시보드</span></li>
-                <!-- 🚨 업무 캘린더 메뉴 신설 -->
                 <li class="nav-item" data-target="calendar">📆 <span id="menu-name-calendar">업무 캘린더</span></li>
-                
                 <li class="nav-item" data-target="report">📝 <span id="menu-name-report">업무 보고서</span></li>
                 <li class="nav-item" data-target="checklist">✅ <span id="menu-name-checklist">업무 체크리스트</span></li>
                 <li class="nav-item" data-target="monthly">🗓️ <span id="menu-name-monthly">매월 체크리스트</span></li>
@@ -532,23 +530,25 @@
                         globalDB.reportRemarks = {}; needsAppDBSave = true;
                     }
                     
-                    if (needsAppDBSave) await saveDB(globalDB); 
-
-                    // 🚨 캘린더 기본값 및 권한 마이그레이션 적용
-                    if (!globalDB.users || globalDB.users.length === 0) globalDB.users = JSON.parse(JSON.stringify(defaultDB.users)); 
-                    if (!globalDB.settings) globalDB.settings = JSON.parse(JSON.stringify(defaultDB.settings));
-                    if (!globalDB.settings.menuNames.calendar) globalDB.settings.menuNames.calendar = '업무 캘린더';
+                    // 🚨 캘린더 기본값 및 권한 마이그레이션 적용 (저장 전 세팅)
+                    if (!globalDB.users || globalDB.users.length === 0) { globalDB.users = JSON.parse(JSON.stringify(defaultDB.users)); needsAppDBSave = true; }
+                    if (!globalDB.settings) { globalDB.settings = JSON.parse(JSON.stringify(defaultDB.settings)); needsAppDBSave = true; }
+                    if (!globalDB.settings.menuNames.calendar) { globalDB.settings.menuNames.calendar = '업무 캘린더'; needsAppDBSave = true; }
                     
-                    if (!globalDB.monthlyChecklistInit) globalDB.monthlyChecklistInit = {}; 
-                    if (!globalDB.groups) globalDB.groups = defaultDB.groups;
+                    if (!globalDB.monthlyChecklistInit) { globalDB.monthlyChecklistInit = {}; needsAppDBSave = true; }
+                    if (!globalDB.groups) { globalDB.groups = defaultDB.groups; needsAppDBSave = true; }
                     
                     globalDB.users.forEach(u => {
-                        if (!u.menus) u.menus = ['dashboard', 'calendar', 'report', 'checklist', 'monthly'];
-                        if (!u.menus.includes('calendar')) u.menus.splice(1, 0, 'calendar'); // 기존 유저에게 캘린더 권한 부여
-                        if (!u.menus.includes('monthly')) u.menus.push('monthly');
-                        if (u.role === 'admin' && !u.menus.includes('admin')) u.menus.push('admin');
-                        if (!u.group) u.group = '운영팀';
+                        if (!u.menus) { u.menus = ['dashboard', 'calendar', 'report', 'checklist', 'monthly']; needsAppDBSave = true; }
+                        if (!u.menus.includes('calendar')) { u.menus.splice(1, 0, 'calendar'); needsAppDBSave = true; }
+                        if (!u.menus.includes('monthly')) { u.menus.push('monthly'); needsAppDBSave = true; }
+                        if (u.role === 'admin' && !u.menus.includes('admin')) { u.menus.push('admin'); needsAppDBSave = true; }
+                        if (!u.group) { u.group = '운영팀'; needsAppDBSave = true; }
                     });
+
+                    // 🚨 모든 세팅 변경 후 딱 1번만 안전하게 저장
+                    if (needsAppDBSave) await saveDB(globalDB);
+
                 } else {
                     globalDB = JSON.parse(JSON.stringify(defaultDB));
                     globalDB.monthlyChecklistInit = {};
@@ -575,6 +575,19 @@
                     globalTasks = snapshot.docs.map(d => d.data()).sort((a, b) => (a.order || 0) - (b.order || 0));
                     triggerRefreshIfActive('dashboard');
                     triggerRefreshIfActive('calendar'); // 캘린더 화면도 즉시 동기화
+                    
+                    // 캘린더 팝업 열려있을 때 실시간 갱신
+                    const editModalBody = document.getElementById('task-edit-modal-body');
+                    const modal = document.getElementById('task-edit-modal');
+                    if (editModalBody && modal && !modal.classList.contains('hidden')) {
+                        const card = editModalBody.querySelector('.task-card');
+                        if (card) {
+                            const taskId = Number(card.dataset.id);
+                            const updatedT = globalTasks.find(x => x.id === taskId);
+                            if (updatedT) editModalBody.innerHTML = createCardHTML({...updatedT, isOpen: true});
+                            else modal.classList.add('hidden'); // 삭제된 경우 모달 닫기
+                        }
+                    }
                 });
 
                 onSnapshot(collection(firestoreDB, "checklists"), (snapshot) => {
@@ -672,8 +685,8 @@
         }
 
         function getInitializedFutureMonths(db, uid, currentMonth) {
-            if (!db.monthlyChecklistInit) return [];
-            return Object.keys(db.monthlyChecklistInit)
+            if (!globalDB.monthlyChecklistInit) return [];
+            return Object.keys(globalDB.monthlyChecklistInit)
                 .filter(k => k.startsWith(`${uid}_`))
                 .map(k => k.replace(`${uid}_`, ''))
                 .filter(m => m > currentMonth)
@@ -780,7 +793,11 @@
             if (user) {
                 if(user.status !== 'approved') return alert('현재 관리자 승인 대기중이거나 차단된 계정입니다.');
                 if (document.getElementById('save-id').checked) localStorage.setItem('savedId', id); else localStorage.removeItem('savedId');
-                sessionStorage.setItem('currentUser', JSON.stringify(user)); enterApp(user);
+                
+                // 🚨 로그인 시 브라우저 세션에 캘린더 권한 강제 갱신 주입 (버그 방어)
+                if (!user.menus.includes('calendar')) user.menus.splice(1, 0, 'calendar');
+                sessionStorage.setItem('currentUser', JSON.stringify(user)); 
+                enterApp(user);
             } else alert('아이디 또는 비밀번호가 일치하지 않습니다.');
         });
 
@@ -799,6 +816,12 @@
         });
 
         function enterApp(user) {
+            // 🚨 앱 진입 시 세션 권한에 캘린더 강제 반영 (기존 유저 로그인 오류 방지)
+            if (!user.menus.includes('calendar')) {
+                user.menus.splice(1, 0, 'calendar');
+                sessionStorage.setItem('currentUser', JSON.stringify(user));
+            }
+
             document.getElementById('login-view').classList.add('hidden'); document.getElementById('app-view').classList.remove('hidden');
             const db = getDB();
             document.title = db.settings.sysTitle; document.getElementById('sidebar-title').innerHTML = `<span style="font-size:1.4rem;">💡</span> ${db.settings.sysTitle}`;
@@ -1194,7 +1217,7 @@
         }
 
         /* =========================================
-           5-1. 일반 체크리스트 로직
+           5-1. 일반 체크리스트 로직 (🚨 독립된 globalChecklists 연동)
            ========================================= */
         let chkState = { search: '' };
         function initChecklist(container) {
@@ -1235,7 +1258,7 @@
         }
 
         /* =========================================
-           5-2. 매월 체크리스트 로직
+           5-2. 매월 체크리스트 로직 (🚨 글로벌 동기화 엔진 픽스)
            ========================================= */
         let monthlyChkState = { search: '', month: getCurrentMonthStr() };
         function initMonthlyChecklist(container) {
@@ -1254,6 +1277,80 @@
                 <div id="monthly-checklist-container"></div>
             `;
             renderMonthlyChecklist();
+        }
+
+        function getNextMonthStr(monthStr) {
+            const [y, m] = monthStr.split('-').map(Number);
+            const date = new Date(y, m, 1);
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+        function getPrevMonthStr(monthStr) {
+            const [y, m] = monthStr.split('-').map(Number);
+            const date = new Date(y, m - 2, 1);
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        // 🚨 매월 데이터 미래 월 자동 생성 엔진 (독립 컬렉션 아키텍처에 맞게 완벽 픽스)
+        async function ensureMonthInitialized(db, uid, targetMonth) {
+            if(!db) return;
+            const initKey = `${uid}_${targetMonth}`;
+            if (db.monthlyChecklistInit && db.monthlyChecklistInit[initKey]) return;
+
+            const initKeys = Object.keys(db.monthlyChecklistInit || {})
+                                   .filter(k => k.startsWith(`${uid}_`))
+                                   .map(k => k.split('_')[1])
+                                   .sort();
+
+            let lastInitMonth = null;
+            for (let i = initKeys.length - 1; i >= 0; i--) {
+                if (initKeys[i] < targetMonth) {
+                    lastInitMonth = initKeys[i];
+                    break;
+                }
+            }
+
+            if (!db.monthlyChecklistInit) db.monthlyChecklistInit = {};
+
+            if (!lastInitMonth) {
+                db.monthlyChecklistInit[initKey] = true;
+                await updateDoc(doc(firestoreDB, "WorkSystem", DB_KEY), { monthlyChecklistInit: db.monthlyChecklistInit });
+                return;
+            }
+
+            let curr = lastInitMonth;
+            while (curr < targetMonth) {
+                const nextMonth = getNextMonthStr(curr);
+                
+                // 옛날 덩어리(db.monthlyChecklists) 대신 독립 데이터인 globalMonthlyChecklists를 바라보도록 수정
+                const prevRecords = globalMonthlyChecklists.filter(c => c.userId === uid && c.month === curr);
+                
+                if (prevRecords.length > 0) {
+                    for (let group of prevRecords) {
+                        let newItems = [];
+                        group.items.forEach(item => {
+                            if (item.status === '당월') return; 
+                            let newItem = { ...item, id: Date.now() + Math.random(), syncItemId: item.syncItemId, isChecked: false };
+                            if (item.status === '이월') newItem.status = '당월';
+                            newItem.memos = [...(item.memos || [])]; 
+                            newItems.push(newItem);
+                        });
+                        
+                        const newGroup = {
+                            ...group,
+                            id: Date.now() + Math.random(),
+                            syncGroupId: group.syncGroupId, 
+                            month: nextMonth,
+                            items: newItems,
+                            order: group.order || -Date.now()
+                        };
+                        await setDoc(doc(firestoreDB, "monthlyChecklists", String(newGroup.id)), newGroup);
+                    }
+                }
+                
+                db.monthlyChecklistInit[`${uid}_${nextMonth}`] = true;
+                curr = nextMonth;
+            }
+            await updateDoc(doc(firestoreDB, "WorkSystem", DB_KEY), { monthlyChecklistInit: db.monthlyChecklistInit });
         }
 
         async function renderMonthlyChecklist() {
@@ -2043,3 +2140,4 @@
     </script>
 </body>
 </html>
+]
