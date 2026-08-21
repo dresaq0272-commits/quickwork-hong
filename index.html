@@ -178,17 +178,43 @@
         /* 🚨 업무 캘린더 전용 CSS */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--color-border); border: 1px solid var(--color-border); border-radius: var(--border-radius); overflow: hidden; margin-top: 1rem; }
         .cal-day-name { background: var(--color-primary-light); text-align: center; padding: 0.75rem 0.5rem; font-weight: 800; color: var(--color-text-main); font-size: 0.95rem; }
-        .cal-cell { background: var(--color-surface); min-height: 130px; padding: 0.5rem; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; transition: background-color 0.2s; }
+        .cal-cell { background: var(--color-surface); min-height: 130px; padding: 0.5rem; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; transition: background-color 0.2s; cursor: pointer; }
         .cal-cell:hover { background: var(--color-bg); }
-        .cal-date { font-size: 0.9rem; font-weight: 700; color: var(--color-text-sub); margin-bottom: 6px; text-align: right; padding: 2px; }
+        .cal-date { font-size: 0.9rem; font-weight: 700; color: var(--color-text-sub); margin-bottom: 6px; text-align: right; padding: 2px; user-select: none; }
         .cal-date.today { color: white; background: var(--color-primary); border-radius: 50%; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; align-self: flex-end; }
         .cal-task-badge { font-size: 0.8rem; padding: 0.3rem 0.5rem; border-radius: 4px; color: white; cursor: grab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; transition: transform 0.1s; }
         .cal-task-badge:hover { filter: brightness(0.9); transform: translateY(-1px); }
         .cal-task-badge:active { cursor: grabbing; }
         .cal-cell.other-month { background: var(--color-bg); opacity: 0.5; }
         
-        #task-edit-modal .modal-content { max-width: 650px; background: transparent; border: none; padding: 0; box-shadow: none; }
-        #task-edit-modal .task-card { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--color-primary); background: var(--color-surface); }
+        /* 🚨 캘린더 모달 UI 디자인 완벽 개선 (X버튼 위치 수정) */
+        #task-edit-modal .modal-content { 
+            max-width: 650px; 
+            background: var(--color-bg); 
+            padding: 1.5rem; 
+            border-radius: var(--border-radius);
+            position: relative;
+        }
+        #btn-close-task-edit {
+            position: absolute;
+            top: -15px; 
+            right: -15px;
+            background: #EF4444;
+            color: white;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            z-index: 1050;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            transition: 0.2s;
+        }
+        #btn-close-task-edit:hover { background: #DC2626; transform: scale(1.1); }
+        #task-edit-modal .task-card { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid var(--color-border); background: var(--color-surface); margin-top: 0.5rem; }
 
         /* =========================================
            4. 보고서 레이아웃 (줄바꿈 pre-wrap 지원)
@@ -299,13 +325,11 @@
         </div>
     </div>
     
-    <!-- 🚨 캘린더에서 업무를 수정하는 전용 팝업 -->
-    <div id="task-edit-modal" class="modal-overlay hidden">
+    <!-- 🚨 캘린더에서 업무를 수정하는 전용 팝업 (X버튼 위치 완벽 개선) -->
+    <div id="task-edit-modal" class="modal-overlay hidden" style="z-index: 1050;">
         <div class="modal-content">
-            <div style="background:var(--color-surface); border-radius:var(--border-radius); padding:1rem; position:relative;">
-                <button class="btn-icon" id="btn-close-task-edit" style="position:absolute; top:0.5rem; right:0.5rem; z-index:10; font-size:1.2rem;">✕</button>
-                <div id="task-edit-modal-body" style="margin-top: 1rem;"></div>
-            </div>
+            <button id="btn-close-task-edit">✕</button>
+            <div id="task-edit-modal-body"></div>
         </div>
     </div>
 
@@ -531,7 +555,7 @@
                         globalDB.reportRemarks = {}; needsAppDBSave = true;
                     }
                     
-                    // 🚨 캘린더 기본값 및 권한 마이그레이션 적용 (저장 전 세팅)
+                    // 🚨 캘린더 기본값 및 권한 마이그레이션 적용
                     if (!globalDB.users || globalDB.users.length === 0) { globalDB.users = JSON.parse(JSON.stringify(defaultDB.users)); needsAppDBSave = true; }
                     if (!globalDB.settings) { globalDB.settings = JSON.parse(JSON.stringify(defaultDB.settings)); needsAppDBSave = true; }
                     if (!globalDB.settings.menuNames.calendar) { globalDB.settings.menuNames.calendar = '업무 캘린더'; needsAppDBSave = true; }
@@ -673,6 +697,29 @@
             }
             if (e.target.tagName === 'TEXTAREA' && e.key === 'Enter') {
                 if (!e.shiftKey) { e.preventDefault(); e.target.blur(); }
+            }
+        });
+
+        /* =========================================
+           🚨 캘린더 셀 더블클릭 로직 추가 (새 업무 추가)
+           ========================================= */
+        document.body.addEventListener('dblclick', (e) => {
+            const cell = e.target.closest('.cal-cell');
+            if (cell && !e.target.closest('.cal-task-badge')) {
+                // 더블클릭 시 글자 드래그 선택되는 현상 방지
+                if(window.getSelection) { window.getSelection().removeAllRanges(); }
+                
+                const dateStr = cell.dataset.date;
+                if (dateStr) {
+                    document.getElementById('new-task-category').value = '기본업무';
+                    document.getElementById('new-task-title').value = '';
+                    document.getElementById('new-task-status').value = '진행중'; // 🚨 진행중으로 자동 세팅
+                    document.getElementById('new-task-start').value = dateStr;   // 🚨 해당 날짜로 시작일 자동 세팅
+                    document.getElementById('new-task-end').value = '';
+                    document.getElementById('task-add-modal').classList.remove('hidden');
+                    resizeAllTextareas();
+                    document.getElementById('new-task-title').focus(); // 🚨 제목 바로 입력 가능하도록 포커스
+                }
             }
         });
 
@@ -975,7 +1022,10 @@
                             <button class="btn-icon btn-cal-next" style="background:var(--color-primary-light); color:var(--color-primary);">▶</button>
                         </div>
                     </div>
-                    <button class="btn btn-primary" id="btn-cal-today">오늘</button>
+                    <div>
+                        <button class="btn btn-outline" id="btn-cal-today" style="margin-right: 0.5rem;">오늘</button>
+                        <button class="btn btn-primary" id="btn-add-task">+ 새 업무 추가</button>
+                    </div>
                 </div>
                 <div id="calendar-container"></div>
             `;
@@ -1032,7 +1082,7 @@
                     const dayTasks = myTasks.filter(t => {
                         if (!t.startDate && t.status !== '완료') return false; 
                         
-                        // 🚨 1. 단일 일자 표기 로직 (완료건은 종료일, 진행/보류/대기건은 시작일)
+                        // 단일 일자 표기 로직 (완료건은 종료일, 진행/보류/대기건은 시작일)
                         if (t.status === '완료') {
                             return t.endDate === cellDateStr;
                         } else {
@@ -1040,10 +1090,10 @@
                         }
                     });
 
-                    // 🚨 2. 사용자 정의 순서 정렬
+                    // 1. 사용자 정의 순서 정렬
                     dayTasks.sort((a, b) => (a.order || 0) - (b.order || 0));
 
-                    // 🚨 3. 완료 건을 가장 아래로 정렬 (후순위)
+                    // 2. 완료 건을 가장 아래로 정렬 (후순위)
                     dayTasks.sort((a, b) => {
                         if (a.status === '완료' && b.status !== '완료') return 1;
                         if (a.status !== '완료' && b.status === '완료') return -1;
@@ -1051,7 +1101,7 @@
                     });
 
                     tasksHtml = dayTasks.map(t => {
-                        // 🚨 4. 완료 건 회색(#94A3B8) 처리 및 드래그 엔진용 속성 추가
+                        // 완료 건 회색(#94A3B8) 처리 및 드래그 엔진용 속성 추가
                         let color = t.status === '완료' ? '#94A3B8' : (t.status === '진행중' ? 'var(--status-ing)' : (t.status === '보류' ? 'var(--status-hold)' : 'var(--status-wait)'));
                         let extraStyle = t.status === '완료' ? 'opacity: 0.8;' : '';
                         return `<div class="cal-task-badge" draggable="true" data-task-id="${t.id}" style="background-color:${color}; ${extraStyle}" title="${t.title}">${t.title}</div>`;
@@ -1513,11 +1563,10 @@
                 }
                 document.getElementById('task-complete-modal').classList.add('hidden');
                 
-                // 모달에서 닫히면 대시보드인지 캘린더인지 확인 후 캘린더 모달도 갱신
+                // 🚨 팝업에서 완료 처리 시 팝업창(모달) 즉시 닫기 로직 적용
                 const editModalBody = document.getElementById('task-edit-modal-body');
                 if (editModalBody && !document.getElementById('task-edit-modal').classList.contains('hidden')) {
-                    const updatedT = globalTasks.find(x => x.id === taskId);
-                    if (updatedT) editModalBody.innerHTML = createCardHTML({...updatedT, isOpen: true});
+                    document.getElementById('task-edit-modal').classList.add('hidden');
                 }
                 if(document.activeElement) document.activeElement.blur();
             }
