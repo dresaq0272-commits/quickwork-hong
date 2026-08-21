@@ -132,7 +132,7 @@
         #btn-stop-impersonation:hover { background: #DC2626; transform: translateY(-3px); }
 
         /* =========================================
-           3. 공통 모듈 (대시보드)
+           3. 공통 모듈 (대시보드 및 캘린더)
            ========================================= */
         .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap:1rem; }
         .tabs { display: flex; gap: 1rem; border-bottom: 2px solid var(--color-border); margin-bottom: 2rem; }
@@ -175,6 +175,19 @@
         .btn-add-sub, .btn-add-remark { background: none; border: 1px dashed var(--color-border); color: var(--color-text-sub); border-radius: 4px; padding: 0.4rem; font-size: 0.8rem; cursor: pointer; transition: 0.2s; margin-top: 0.25rem; width: 100%; text-align: left; }
         .task-footer { display: flex; gap: 1.5rem; align-items: center; font-size: 0.8rem; color: var(--color-text-sub); margin-top: 0.5rem; padding-top: 0.75rem; border-top: 1px dashed var(--color-border); }
         .task-footer .inline-input { padding: 0.1rem 0.3rem; font-size: 0.85rem; width: 120px; font-weight: 600; }
+
+        /* 🚨 업무 캘린더 전용 CSS */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--color-border); border: 1px solid var(--color-border); border-radius: var(--border-radius); overflow: hidden; margin-top: 1rem; }
+        .cal-day-name { background: var(--color-primary-light); text-align: center; padding: 0.75rem 0.5rem; font-weight: 800; color: var(--color-text-main); font-size: 0.95rem; }
+        .cal-cell { background: var(--color-surface); min-height: 130px; padding: 0.5rem; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+        .cal-date { font-size: 0.9rem; font-weight: 700; color: var(--color-text-sub); margin-bottom: 6px; text-align: right; padding: 2px; }
+        .cal-date.today { color: white; background: var(--color-primary); border-radius: 50%; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; align-self: flex-end; }
+        .cal-task-badge { font-size: 0.8rem; padding: 0.3rem 0.5rem; border-radius: 4px; color: white; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; transition: transform 0.1s; }
+        .cal-task-badge:hover { filter: brightness(0.9); transform: translateY(-1px); }
+        .cal-cell.other-month { background: var(--color-bg); opacity: 0.5; }
+        
+        #task-edit-modal .modal-content { max-width: 650px; background: transparent; border: none; padding: 0; box-shadow: none; }
+        #task-edit-modal .task-card { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--color-primary); }
 
         /* =========================================
            4. 보고서 레이아웃 (줄바꿈 pre-wrap 지원)
@@ -270,7 +283,8 @@
         </div>
     </div>
 
-    <div id="task-complete-modal" class="modal-overlay hidden">
+    <!-- 🚨 완료 시 완료일 지정 모달 (우선순위 1100 적용) -->
+    <div id="task-complete-modal" class="modal-overlay hidden" style="z-index: 1100;">
         <div class="modal-content">
             <h2 style="margin-bottom: 1.5rem; font-weight: 800; color: var(--color-primary);">✅ 업무 완료 처리</h2>
             <div class="form-group">
@@ -280,6 +294,16 @@
             <div class="modal-footer right">
                 <button class="btn btn-outline" id="btn-cancel-complete">취소</button>
                 <button class="btn btn-primary" id="btn-confirm-complete">완료 처리</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 🚨 캘린더에서 업무를 수정하는 전용 팝업 -->
+    <div id="task-edit-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div style="background:var(--color-surface); border-radius:var(--border-radius); padding:1rem; position:relative;">
+                <button class="btn-icon" id="btn-close-task-edit" style="position:absolute; top:0.5rem; right:0.5rem; z-index:10; font-size:1.2rem;">✕</button>
+                <div id="task-edit-modal-body" style="margin-top: 1rem;"></div>
             </div>
         </div>
     </div>
@@ -363,6 +387,9 @@
             <div class="sidebar-header" id="sidebar-title"><span style="font-size: 1.4rem;">💡</span> 시스템 이름</div>
             <ul class="nav-menu">
                 <li class="nav-item active" data-target="dashboard">📊 <span id="menu-name-dashboard">업무 대시보드</span></li>
+                <!-- 🚨 업무 캘린더 메뉴 신설 -->
+                <li class="nav-item" data-target="calendar">📆 <span id="menu-name-calendar">업무 캘린더</span></li>
+                
                 <li class="nav-item" data-target="report">📝 <span id="menu-name-report">업무 보고서</span></li>
                 <li class="nav-item" data-target="checklist">✅ <span id="menu-name-checklist">업무 체크리스트</span></li>
                 <li class="nav-item" data-target="monthly">🗓️ <span id="menu-name-monthly">매월 체크리스트</span></li>
@@ -400,18 +427,18 @@
         const firestoreDB = getFirestore(app);
 
         /* =========================================
-           1. DB 초기화 (🚨 대공사 3부: 모든 데이터 컬렉션 독립 & 마이그레이션)
+           1. DB 초기화 
            ========================================= */
         const DB_KEY = 'AppDB';
         const defaultDB = {
-            users: [{ id: 'admin', pw: '1111', role: 'admin', status: 'approved', name: '최고관리자', group: '운영팀', menus: ['dashboard','report','checklist','monthly','admin'] }],
+            users: [{ id: 'admin', pw: '1111', role: 'admin', status: 'approved', name: '최고관리자', group: '운영팀', menus: ['dashboard','calendar','report','checklist','monthly','admin'] }],
             groups: [{ id: 1, name: '운영팀' }, { id: 2, name: '개발팀' }, { id: 3, name: '영업팀' }],
-            settings: { sysTitle: 'QuickWork', menuNames: { dashboard: '업무 대시보드', report: '업무 보고서', checklist: '업무 체크리스트', monthly: '매월 체크리스트', admin: '설정' }, notice: '새로운 업무 시스템에 오신 것을 환영합니다!' }
+            settings: { sysTitle: 'QuickWork', menuNames: { dashboard: '업무 대시보드', calendar: '업무 캘린더', report: '업무 보고서', checklist: '업무 체크리스트', monthly: '매월 체크리스트', admin: '설정' }, notice: '새로운 업무 시스템에 오신 것을 환영합니다!' }
         };
         
         let globalDB = null; 
         
-        // 🚨 실시간 감시용 전역 배열들 (모든 데이터가 쪼개져서 관리됨)
+        // 🚨 실시간 감시용 전역 배열들
         let globalTasks = []; 
         let globalChecklists = [];
         let globalMonthlyChecklists = [];
@@ -464,6 +491,7 @@
 
         function refreshCurrentView(target) {
             if (target === 'dashboard') renderDashList();
+            else if (target === 'calendar') renderCalendar();
             else if (target === 'report') { if (reportState.tab === 'archive') renderArchive(document.getElementById('report-content-area')); else renderReportContent(); }
             else if (target === 'checklist') renderChecklist();
             else if (target === 'monthly') renderMonthlyChecklist();
@@ -482,7 +510,7 @@
                     
                     let needsAppDBSave = false;
 
-                    // 🚨 [마이그레이션 엔진] AppDB에 갇혀있던 모든 데이터를 5개의 독립된 컬렉션으로 분가(이사)시킴
+                    // AppDB 분가 엔진
                     if (globalDB.tasks && globalDB.tasks.length > 0) {
                         for (let i=0; i<globalDB.tasks.length; i++) { const t = globalDB.tasks[i]; t.order = i; await setDoc(doc(firestoreDB, "tasks", String(t.id)), t); }
                         globalDB.tasks = []; needsAppDBSave = true;
@@ -504,16 +532,19 @@
                         globalDB.reportRemarks = {}; needsAppDBSave = true;
                     }
                     
-                    if (needsAppDBSave) await saveDB(globalDB); // 텅 빈 집(AppDB) 저장
+                    if (needsAppDBSave) await saveDB(globalDB); 
 
-                    // 기본값 땜빵
+                    // 🚨 캘린더 기본값 및 권한 마이그레이션 적용
                     if (!globalDB.users || globalDB.users.length === 0) globalDB.users = JSON.parse(JSON.stringify(defaultDB.users)); 
                     if (!globalDB.settings) globalDB.settings = JSON.parse(JSON.stringify(defaultDB.settings));
+                    if (!globalDB.settings.menuNames.calendar) globalDB.settings.menuNames.calendar = '업무 캘린더';
+                    
                     if (!globalDB.monthlyChecklistInit) globalDB.monthlyChecklistInit = {}; 
                     if (!globalDB.groups) globalDB.groups = defaultDB.groups;
                     
                     globalDB.users.forEach(u => {
-                        if (!u.menus) u.menus = ['dashboard', 'report', 'checklist', 'monthly'];
+                        if (!u.menus) u.menus = ['dashboard', 'calendar', 'report', 'checklist', 'monthly'];
+                        if (!u.menus.includes('calendar')) u.menus.splice(1, 0, 'calendar'); // 기존 유저에게 캘린더 권한 부여
                         if (!u.menus.includes('monthly')) u.menus.push('monthly');
                         if (u.role === 'admin' && !u.menus.includes('admin')) u.menus.push('admin');
                         if (!u.group) u.group = '운영팀';
@@ -525,9 +556,8 @@
                     await saveDB(globalDB);
                 }
 
-                // 🚨 2. 모든 컬렉션에 실시간 감시망(onSnapshot) 부착 완료 (자체 딜레이 제거하여 0.1초 반응)
+                // 2. 모든 컬렉션 실시간 감시망(onSnapshot) 부착
                 
-                // 설정 및 유저 데이터 실시간 감시 (AppDB)
                 onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
@@ -544,6 +574,7 @@
                 onSnapshot(collection(firestoreDB, "tasks"), (snapshot) => {
                     globalTasks = snapshot.docs.map(d => d.data()).sort((a, b) => (a.order || 0) - (b.order || 0));
                     triggerRefreshIfActive('dashboard');
+                    triggerRefreshIfActive('calendar'); // 캘린더 화면도 즉시 동기화
                 });
 
                 onSnapshot(collection(firestoreDB, "checklists"), (snapshot) => {
@@ -623,7 +654,7 @@
                 document.getElementById('task-add-modal').classList.add('hidden');
                 document.getElementById('pw-change-modal').classList.add('hidden');
                 document.getElementById('task-complete-modal')?.classList.add('hidden');
-                document.getElementById('admin-user-view-modal')?.classList.add('hidden');
+                document.getElementById('task-edit-modal')?.classList.add('hidden');
                 if(document.activeElement) document.activeElement.blur();
             }
             if (e.target.tagName === 'TEXTAREA' && e.key === 'Enter') {
@@ -632,7 +663,7 @@
         });
 
         /* =========================================
-           🚨 미래 월 자동 연동 (Cascading Updates) 헬퍼 - (독립 컬렉션 updateDoc으로 변경)
+           🚨 미래 월 자동 연동 (Cascading Updates) 헬퍼 
            ========================================= */
         function getMonthDiff(m1, m2) {
             const [y1, mo1] = m1.split('-').map(Number);
@@ -738,7 +769,7 @@
             if(!name || !id || !pw) return alert('모든 항목을 입력해주세요.');
             const db = getDB();
             if(db.users.find(u => u.id === id)) return alert('이미 존재하는 아이디입니다.');
-            db.users.push({ id, pw, name, role: 'user', status: 'pending', group: db.groups[0].name, menus: ['dashboard', 'report', 'checklist', 'monthly'] });
+            db.users.push({ id, pw, name, role: 'user', status: 'pending', group: db.groups[0].name, menus: ['dashboard', 'calendar', 'report', 'checklist', 'monthly'] });
             saveDB(db); alert('회원가입이 신청되었습니다.\n관리자 승인 후 로그인이 가능합니다.'); document.getElementById('signup-modal').classList.add('hidden');
         });
 
@@ -771,7 +802,7 @@
             document.getElementById('login-view').classList.add('hidden'); document.getElementById('app-view').classList.remove('hidden');
             const db = getDB();
             document.title = db.settings.sysTitle; document.getElementById('sidebar-title').innerHTML = `<span style="font-size:1.4rem;">💡</span> ${db.settings.sysTitle}`;
-            ['dashboard', 'report', 'checklist', 'monthly', 'admin'].forEach(key => { if(document.getElementById(`menu-name-${key}`)) document.getElementById(`menu-name-${key}`).textContent = db.settings.menuNames[key]; });
+            ['dashboard', 'calendar', 'report', 'checklist', 'monthly', 'admin'].forEach(key => { if(document.getElementById(`menu-name-${key}`)) document.getElementById(`menu-name-${key}`).textContent = db.settings.menuNames[key]; });
             
             const ghosting = sessionStorage.getItem('adminGhosting');
             if (ghosting) {
@@ -820,6 +851,7 @@
         function renderMenu(target) {
             const area = document.getElementById('content-area');
             if (target === 'dashboard') initDashboard(area);
+            else if (target === 'calendar') initCalendar(area);
             else if (target === 'report') initReport(area);
             else if (target === 'checklist') initChecklist(area);
             else if (target === 'monthly') initMonthlyChecklist(area);
@@ -905,7 +937,90 @@
         }
 
         /* =========================================
-           4. 보고서 로직 (🚨 독립된 globalReports 연동)
+           🚨 신규 추가: 업무 캘린더 로직
+           ========================================= */
+        let calState = { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
+        function initCalendar(container) {
+            container.innerHTML = `
+                <div class="dashboard-header">
+                    <div style="display:flex; align-items:center; gap:1rem;">
+                        <h2 style="font-size:1.5rem; font-weight:800; color:var(--color-text-main);">📆 업무 캘린더</h2>
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <button class="btn-icon btn-cal-prev" style="background:var(--color-primary-light); color:var(--color-primary);">◀</button>
+                            <span style="font-size:1.2rem; font-weight:800; min-width:100px; text-align:center; color:var(--color-text-main);">${calState.year}년 ${calState.month}월</span>
+                            <button class="btn-icon btn-cal-next" style="background:var(--color-primary-light); color:var(--color-primary);">▶</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="btn-cal-today">오늘</button>
+                </div>
+                <div id="calendar-container"></div>
+            `;
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const container = document.getElementById('calendar-container'); if(!container) return;
+            const uid = getCurrentUserId();
+            const firstDay = new Date(calState.year, calState.month - 1, 1).getDay();
+            const lastDate = new Date(calState.year, calState.month, 0).getDate();
+            const prevLastDate = new Date(calState.year, calState.month - 1, 0).getDate();
+            
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+            let html = '<div class="calendar-grid">';
+            const days = ['일','월','화','수','목','금','토'];
+            days.forEach(d => html += `<div class="cal-day-name" style="${d==='일'?'color:#EF4444;':d==='토'?'color:#3B82F6;':''}">${d}</div>`);
+            
+            let dateNum = 1;
+            let nextMonthDate = 1;
+
+            const myTasks = globalTasks.filter(t => t.userId === uid);
+
+            for (let i = 0; i < 42; i++) { 
+                let cellDateStr = '';
+                let cellClass = 'cal-cell';
+                let dayDisplay = '';
+                
+                if (i < firstDay) {
+                    cellClass += ' other-month';
+                    let d = prevLastDate - firstDay + i + 1;
+                    dayDisplay = d;
+                } else if (dateNum > lastDate) {
+                    cellClass += ' other-month';
+                    dayDisplay = nextMonthDate++;
+                } else {
+                    cellDateStr = `${calState.year}-${String(calState.month).padStart(2,'0')}-${String(dateNum).padStart(2,'0')}`;
+                    let isToday = (cellDateStr === todayStr);
+                    dayDisplay = `<div style="display:flex; justify-content:flex-end;"><span class="cal-date ${isToday?'today':''}">${dateNum}</span></div>`;
+                    dateNum++;
+                }
+
+                let tasksHtml = '';
+                if (cellDateStr) {
+                    const dayTasks = myTasks.filter(t => {
+                        if(t.status === '대기' || t.status === '보류' || !t.startDate) return false;
+                        const start = t.startDate;
+                        const end = (t.status === '완료' && t.endDate) ? t.endDate : (t.endDate ? t.endDate : '9999-12-31');
+                        return cellDateStr >= start && cellDateStr <= end;
+                    });
+
+                    tasksHtml = dayTasks.map(t => {
+                        let color = t.status === '완료' ? 'var(--status-done)' : (t.status === '진행중' ? 'var(--status-ing)' : (t.status === '보류' ? 'var(--status-hold)' : 'var(--status-wait)'));
+                        return `<div class="cal-task-badge" data-task-id="${t.id}" style="background-color:${color};" title="${t.title}">${t.title}</div>`;
+                    }).join('');
+                } else {
+                    dayDisplay = `<div style="display:flex; justify-content:flex-end;"><span class="cal-date">${dayDisplay}</span></div>`;
+                }
+
+                html += `<div class="${cellClass}">${dayDisplay}${tasksHtml}</div>`;
+            }
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        /* =========================================
+           4. 보고서 로직 
            ========================================= */
         let reportState = { tab: 'weekly', selectedWeek: '', selectedMonth: '' };
         function generateWeeklyOptions() {
@@ -1079,7 +1194,7 @@
         }
 
         /* =========================================
-           5-1. 일반 체크리스트 로직 (🚨 독립된 globalChecklists 연동)
+           5-1. 일반 체크리스트 로직
            ========================================= */
         let chkState = { search: '' };
         function initChecklist(container) {
@@ -1120,7 +1235,7 @@
         }
 
         /* =========================================
-           5-2. 매월 체크리스트 로직 (🚨 글로벌 동기화 엔진 픽스)
+           5-2. 매월 체크리스트 로직
            ========================================= */
         let monthlyChkState = { search: '', month: getCurrentMonthStr() };
         function initMonthlyChecklist(container) {
@@ -1139,80 +1254,6 @@
                 <div id="monthly-checklist-container"></div>
             `;
             renderMonthlyChecklist();
-        }
-
-        function getNextMonthStr(monthStr) {
-            const [y, m] = monthStr.split('-').map(Number);
-            const date = new Date(y, m, 1);
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        }
-        function getPrevMonthStr(monthStr) {
-            const [y, m] = monthStr.split('-').map(Number);
-            const date = new Date(y, m - 2, 1);
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        }
-
-        // 🚨 매월 데이터 미래 월 자동 생성 엔진 (독립 컬렉션 아키텍처에 맞게 완벽 픽스)
-        async function ensureMonthInitialized(db, uid, targetMonth) {
-            if(!db) return;
-            const initKey = `${uid}_${targetMonth}`;
-            if (db.monthlyChecklistInit && db.monthlyChecklistInit[initKey]) return;
-
-            const initKeys = Object.keys(db.monthlyChecklistInit || {})
-                                   .filter(k => k.startsWith(`${uid}_`))
-                                   .map(k => k.split('_')[1])
-                                   .sort();
-
-            let lastInitMonth = null;
-            for (let i = initKeys.length - 1; i >= 0; i--) {
-                if (initKeys[i] < targetMonth) {
-                    lastInitMonth = initKeys[i];
-                    break;
-                }
-            }
-
-            if (!db.monthlyChecklistInit) db.monthlyChecklistInit = {};
-
-            if (!lastInitMonth) {
-                db.monthlyChecklistInit[initKey] = true;
-                await updateDoc(doc(firestoreDB, "WorkSystem", DB_KEY), { monthlyChecklistInit: db.monthlyChecklistInit });
-                return;
-            }
-
-            let curr = lastInitMonth;
-            while (curr < targetMonth) {
-                const nextMonth = getNextMonthStr(curr);
-                
-                // 옛날 덩어리(db.monthlyChecklists) 대신 독립 데이터인 globalMonthlyChecklists를 바라보도록 수정
-                const prevRecords = globalMonthlyChecklists.filter(c => c.userId === uid && c.month === curr);
-                
-                if (prevRecords.length > 0) {
-                    for (let group of prevRecords) {
-                        let newItems = [];
-                        group.items.forEach(item => {
-                            if (item.status === '당월') return; 
-                            let newItem = { ...item, id: Date.now() + Math.random(), syncItemId: item.syncItemId, isChecked: false };
-                            if (item.status === '이월') newItem.status = '당월';
-                            newItem.memos = [...(item.memos || [])]; 
-                            newItems.push(newItem);
-                        });
-                        
-                        const newGroup = {
-                            ...group,
-                            id: Date.now() + Math.random(),
-                            syncGroupId: group.syncGroupId, 
-                            month: nextMonth,
-                            items: newItems,
-                            order: group.order || -Date.now()
-                        };
-                        await setDoc(doc(firestoreDB, "monthlyChecklists", String(newGroup.id)), newGroup);
-                    }
-                }
-                
-                db.monthlyChecklistInit[`${uid}_${nextMonth}`] = true;
-                curr = nextMonth;
-            }
-            await updateDoc(doc(firestoreDB, "WorkSystem", DB_KEY), { monthlyChecklistInit: db.monthlyChecklistInit });
         }
 
         async function renderMonthlyChecklist() {
@@ -1250,10 +1291,11 @@
                         <div><label style="font-weight:700; font-size:0.9rem; margin-bottom:0.5rem; display:block;">메뉴 이름 동적 변경</label>
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem;">
                                 <input type="text" id="admin-menu-dashboard" class="input-text" value="${db.settings.menuNames.dashboard}" placeholder="대시보드">
+                                <input type="text" id="admin-menu-calendar" class="input-text" value="${db.settings.menuNames.calendar || '업무 캘린더'}" placeholder="캘린더">
                                 <input type="text" id="admin-menu-report" class="input-text" value="${db.settings.menuNames.report}" placeholder="보고서">
                                 <input type="text" id="admin-menu-checklist" class="input-text" value="${db.settings.menuNames.checklist}" placeholder="체크리스트">
                                 <input type="text" id="admin-menu-monthly" class="input-text" value="${db.settings.menuNames.monthly}" placeholder="매월 체크리스트">
-                                <input type="text" id="admin-menu-admin" class="input-text" value="${db.settings.menuNames.admin}" placeholder="설정" style="grid-column: span 2;">
+                                <input type="text" id="admin-menu-admin" class="input-text" value="${db.settings.menuNames.admin}" placeholder="설정">
                             </div>
                         </div>
                     </div>
@@ -1289,7 +1331,14 @@
                                         <td><select class="inline-select admin-edit-status" ${u.role === 'admin' ? 'disabled' : ''}><option value="pending" ${u.status === 'pending' ? 'selected' : ''}>승인 대기</option><option value="approved" ${u.status === 'approved' ? 'selected' : ''}>정상 승인</option><option value="blocked" ${u.status === 'blocked' ? 'selected' : ''}>차단됨</option></select></td>
                                         <td><select class="inline-select admin-edit-group">${db.groups.map(g => `<option value="${g.name}" ${u.group === g.name ? 'selected' : ''}>${g.name}</option>`).join('')}</select></td>
                                         <td><select class="inline-select admin-edit-role" ${u.id === 'admin' ? 'disabled' : ''}><option value="user" ${u.role === 'user' ? 'selected' : ''}>일반 유저</option><option value="admin" ${u.role === 'admin' ? 'selected' : ''}>관리자</option></select></td>
-                                        <td><div class="menu-chk-group"><label><input type="checkbox" class="admin-menu-chk" value="dashboard" ${u.menus.includes('dashboard') ? 'checked' : ''}> 대시보드</label><label><input type="checkbox" class="admin-menu-chk" value="report" ${u.menus.includes('report') ? 'checked' : ''}> 보고서</label><label><input type="checkbox" class="admin-menu-chk" value="checklist" ${u.menus.includes('checklist') ? 'checked' : ''}> 체크리스트</label><label><input type="checkbox" class="admin-menu-chk" value="monthly" ${u.menus.includes('monthly') ? 'checked' : ''}> 매월</label><label style="background:#FEF2F2; color:#EF4444;"><input type="checkbox" class="admin-menu-chk" value="admin" ${u.menus.includes('admin') ? 'checked' : ''} ${u.id === 'admin' ? 'disabled' : ''}> 설정</label></div></td>
+                                        <td><div class="menu-chk-group">
+                                            <label><input type="checkbox" class="admin-menu-chk" value="dashboard" ${u.menus.includes('dashboard') ? 'checked' : ''}> 대시보드</label>
+                                            <label><input type="checkbox" class="admin-menu-chk" value="calendar" ${u.menus.includes('calendar') ? 'checked' : ''}> 캘린더</label>
+                                            <label><input type="checkbox" class="admin-menu-chk" value="report" ${u.menus.includes('report') ? 'checked' : ''}> 보고서</label>
+                                            <label><input type="checkbox" class="admin-menu-chk" value="checklist" ${u.menus.includes('checklist') ? 'checked' : ''}> 체크리스트</label>
+                                            <label><input type="checkbox" class="admin-menu-chk" value="monthly" ${u.menus.includes('monthly') ? 'checked' : ''}> 매월</label>
+                                            <label style="background:#FEF2F2; color:#EF4444;"><input type="checkbox" class="admin-menu-chk" value="admin" ${u.menus.includes('admin') ? 'checked' : ''} ${u.id === 'admin' ? 'disabled' : ''}> 설정</label>
+                                        </div></td>
                                         <td>
                                             <div style="display:flex; gap:4px;">
                                                 <button class="btn-icon btn-view-user" title="${u.name} 사용자로 접속하여 데이터 보기" style="background:var(--color-primary-light); color:var(--color-primary);">📂</button>
@@ -1330,6 +1379,41 @@
             }
             
             if (target.id === 'btn-restore-db') { document.getElementById('backup-file-input').click(); return; }
+
+            // 🚨 캘린더 네비게이션 제어
+            if (target.classList.contains('btn-cal-prev') || target.closest('.btn-cal-prev')) {
+                calState.month--;
+                if(calState.month < 1) { calState.month = 12; calState.year--; }
+                renderCalendar();
+            }
+            if (target.classList.contains('btn-cal-next') || target.closest('.btn-cal-next')) {
+                calState.month++;
+                if(calState.month > 12) { calState.month = 1; calState.year++; }
+                renderCalendar();
+            }
+            if (target.id === 'btn-cal-today') {
+                calState.year = new Date().getFullYear();
+                calState.month = new Date().getMonth() + 1;
+                renderCalendar();
+            }
+
+            // 🚨 캘린더의 업무 배지 클릭 시 편집 모달창 띄우기
+            if (target.classList.contains('cal-task-badge')) {
+                const taskId = Number(target.dataset.taskId);
+                const t = globalTasks.find(x => x.id === taskId);
+                if(t) {
+                    // 편집하기 편하도록 무조건 내용이 펼쳐진(isOpen:true) 상태의 카드로 렌더링합니다.
+                    const tempT = {...t, isOpen: true}; 
+                    document.getElementById('task-edit-modal-body').innerHTML = createCardHTML(tempT);
+                    document.getElementById('task-edit-modal').classList.remove('hidden');
+                    requestAnimationFrame(resizeAllTextareas);
+                }
+            }
+
+            // 캘린더 편집 모달창 닫기 버튼
+            if (target.id === 'btn-close-task-edit' || target.closest('#btn-close-task-edit')) {
+                document.getElementById('task-edit-modal').classList.add('hidden');
+            }
 
             if (target.classList.contains('btn-sort-tasks') || target.closest('.btn-sort-tasks')) {
                 const btn = target.classList.contains('btn-sort-tasks') ? target : target.closest('.btn-sort-tasks');
@@ -1378,6 +1462,13 @@
                     await updateDoc(doc(firestoreDB, "tasks", String(taskId)), { status: '완료', endDate: dateVal, startDate: t.startDate || dateVal });
                 }
                 document.getElementById('task-complete-modal').classList.add('hidden');
+                
+                // 모달에서 닫히면 대시보드인지 캘린더인지 확인 후 캘린더 모달도 갱신
+                const editModalBody = document.getElementById('task-edit-modal-body');
+                if (editModalBody && !document.getElementById('task-edit-modal').classList.contains('hidden')) {
+                    const updatedT = globalTasks.find(x => x.id === taskId);
+                    if (updatedT) editModalBody.innerHTML = createCardHTML({...updatedT, isOpen: true});
+                }
                 if(document.activeElement) document.activeElement.blur();
             }
 
@@ -1388,14 +1479,34 @@
 
             if (target.classList.contains('btn-add-sub') && !target.classList.contains('btn-add-chk-item')) { 
                 const t = globalTasks.find(x=>x.id===Number(target.closest('.task-card').dataset.id)); 
-                if(t) await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { subItems: [...t.subItems, {id:Date.now(), text:''}] });
+                if(t) {
+                    await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { subItems: [...t.subItems, {id:Date.now(), text:''}] });
+                    
+                    // 캘린더 모달 내부에서 눌렀을 경우 화면 즉시 갱신 반영
+                    const editModalBody = document.getElementById('task-edit-modal-body');
+                    if (editModalBody && !document.getElementById('task-edit-modal').classList.contains('hidden')) {
+                        const updatedT = globalTasks.find(x => x.id === t.id);
+                        if (updatedT) editModalBody.innerHTML = createCardHTML({...updatedT, isOpen: true});
+                    }
+                }
             }
             if (target.classList.contains('btn-del-sub')) { 
                 const t = globalTasks.find(x=>x.id===Number(target.closest('.task-card').dataset.id)); 
-                if(t) await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { subItems: t.subItems.filter(s=>s.id!==Number(target.closest('.sub-item-row').dataset.subId)) });
+                if(t) {
+                    await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { subItems: t.subItems.filter(s=>s.id!==Number(target.closest('.sub-item-row').dataset.subId)) });
+                    
+                    const editModalBody = document.getElementById('task-edit-modal-body');
+                    if (editModalBody && !document.getElementById('task-edit-modal').classList.contains('hidden')) {
+                        const updatedT = globalTasks.find(x => x.id === t.id);
+                        if (updatedT) editModalBody.innerHTML = createCardHTML({...updatedT, isOpen: true});
+                    }
+                }
             }
             if (target.classList.contains('btn-delete') && !target.classList.contains('btn-delete-report')) { 
-                if(confirm('삭제?')) await deleteDoc(doc(firestoreDB, "tasks", String(target.closest('.task-card').dataset.id)));
+                if(confirm('삭제?')) {
+                    await deleteDoc(doc(firestoreDB, "tasks", String(target.closest('.task-card').dataset.id)));
+                    document.getElementById('task-edit-modal').classList.add('hidden'); // 삭제 시 모달 닫기
+                }
             }
             
             if (target.classList.contains('tab-btn') && !target.classList.contains('report-tab')) { dashState.tab = target.dataset.tab; initDashboard(document.getElementById('content-area')); }
@@ -1517,13 +1628,14 @@
                 db.settings.sysTitle = document.getElementById('sys-title').value.trim() || 'QuickWork'; 
                 db.settings.notice = document.getElementById('sys-notice').value.trim();
                 db.settings.menuNames.dashboard = document.getElementById('admin-menu-dashboard').value.trim() || '대시보드'; 
+                db.settings.menuNames.calendar = document.getElementById('admin-menu-calendar').value.trim() || '업무 캘린더'; 
                 db.settings.menuNames.report = document.getElementById('admin-menu-report').value.trim() || '보고서'; 
                 db.settings.menuNames.checklist = document.getElementById('admin-menu-checklist').value.trim() || '체크리스트'; 
                 db.settings.menuNames.monthly = document.getElementById('admin-menu-monthly').value.trim() || '매월 체크리스트'; 
                 db.settings.menuNames.admin = document.getElementById('admin-menu-admin').value.trim() || '설정';
                 
                 saveDB(db); document.title = db.settings.sysTitle; document.getElementById('sidebar-title').innerHTML = `<span style="font-size:1.4rem;">💡</span> ${db.settings.sysTitle}`;
-                ['dashboard', 'report', 'checklist', 'monthly', 'admin'].forEach(k => {
+                ['dashboard', 'calendar', 'report', 'checklist', 'monthly', 'admin'].forEach(k => {
                     const el = document.getElementById(`menu-name-${k}`);
                     if(el) el.textContent = db.settings.menuNames[k];
                 }); 
