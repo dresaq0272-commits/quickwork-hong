@@ -213,6 +213,7 @@
             justify-content: center;
             border: 2px solid white;
             transition: 0.2s;
+            cursor: pointer;
         }
         #btn-close-task-edit:hover { background: #DC2626; transform: scale(1.1); }
         #task-edit-modal .task-card { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid var(--color-border); background: var(--color-surface); margin-top: 0.5rem; }
@@ -326,7 +327,7 @@
         </div>
     </div>
     
-    <!-- 🚨 캘린더에서 업무를 수정하는 전용 팝업 (X버튼 위치 완벽 개선 적용됨) -->
+    <!-- 🚨 캘린더에서 업무를 수정하는 전용 팝업 -->
     <div id="task-edit-modal" class="modal-overlay hidden" style="z-index: 1050;">
         <div class="modal-content">
             <button id="btn-close-task-edit">✕</button>
@@ -471,7 +472,7 @@
         
         let globalDB = null; 
         
-        // 실시간 감시용 전역 배열들
+        // 🚨 실시간 감시용 전역 배열들
         let globalTasks = []; 
         let globalChecklists = [];
         let globalMonthlyChecklists = [];
@@ -533,7 +534,6 @@
 
         async function initDB() { 
             try {
-                // 1. 시스템 뼈대(유저, 설정) 불러오기 및 전체 마이그레이션
                 const docRef = doc(firestoreDB, "WorkSystem", DB_KEY);
                 const docSnap = await getDoc(docRef);
                 
@@ -565,7 +565,6 @@
                         globalDB.reportRemarks = {}; needsAppDBSave = true;
                     }
                     
-                    // 캘린더 기본값 및 권한 마이그레이션 적용 (저장 전 세팅)
                     if (!globalDB.users || globalDB.users.length === 0) { globalDB.users = JSON.parse(JSON.stringify(defaultDB.users)); needsAppDBSave = true; }
                     if (!globalDB.settings) { globalDB.settings = JSON.parse(JSON.stringify(defaultDB.settings)); needsAppDBSave = true; }
                     if (!globalDB.settings.menuNames.calendar) { globalDB.settings.menuNames.calendar = '업무 캘린더'; needsAppDBSave = true; }
@@ -581,7 +580,6 @@
                         if (!u.group) { u.group = '운영팀'; needsAppDBSave = true; }
                     });
 
-                    // 모든 세팅 변경 후 딱 1번만 안전하게 저장
                     if (needsAppDBSave) await saveDB(globalDB);
 
                 } else {
@@ -591,7 +589,7 @@
                     await saveDB(globalDB);
                 }
 
-                // 2. 모든 컬렉션 실시간 감시망(onSnapshot) 부착
+                // 모든 컬렉션 실시간 감시망(onSnapshot) 부착
                 onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
@@ -606,11 +604,14 @@
                 });
 
                 onSnapshot(collection(firestoreDB, "tasks"), (snapshot) => {
-                    globalTasks = snapshot.docs.map(d => d.data()).sort((a, b) => (a.order || 0) - (b.order || 0));
+                    globalTasks = snapshot.docs.map(d => {
+                        let data = d.data();
+                        if(!data.subItems) data.subItems = [];
+                        return data;
+                    }).sort((a, b) => (a.order || 0) - (b.order || 0));
                     triggerRefreshIfActive('dashboard');
-                    triggerRefreshIfActive('calendar'); // 캘린더 화면도 즉시 동기화
+                    triggerRefreshIfActive('calendar'); 
                     
-                    // 캘린더 팝업 열려있을 때 실시간 갱신
                     const editModalBody = document.getElementById('task-edit-modal-body');
                     const modal = document.getElementById('task-edit-modal');
                     if (editModalBody && modal && !modal.classList.contains('hidden')) {
@@ -619,13 +620,17 @@
                             const taskId = Number(card.dataset.id);
                             const updatedT = globalTasks.find(x => x.id === taskId);
                             if (updatedT) editModalBody.innerHTML = createCardHTML({...updatedT, isOpen: true});
-                            else modal.classList.add('hidden'); // 삭제된 경우 모달 닫기
+                            else modal.classList.add('hidden'); 
                         }
                     }
                 });
 
                 onSnapshot(collection(firestoreDB, "checklists"), (snapshot) => {
-                    globalChecklists = snapshot.docs.map(d => d.data()).sort((a, b) => {
+                    globalChecklists = snapshot.docs.map(d => {
+                        let data = d.data();
+                        if(!data.items) data.items = [];
+                        return data;
+                    }).sort((a, b) => {
                         if(a.order !== undefined && b.order !== undefined) return a.order - b.order;
                         return b.id - a.id;
                     });
@@ -633,7 +638,11 @@
                 });
 
                 onSnapshot(collection(firestoreDB, "monthlyChecklists"), (snapshot) => {
-                    globalMonthlyChecklists = snapshot.docs.map(d => d.data()).sort((a, b) => {
+                    globalMonthlyChecklists = snapshot.docs.map(d => {
+                        let data = d.data();
+                        if(!data.items) data.items = [];
+                        return data;
+                    }).sort((a, b) => {
                         if(a.order !== undefined && b.order !== undefined) return a.order - b.order;
                         return b.id - a.id;
                     });
@@ -730,30 +739,6 @@
         });
 
         /* =========================================
-           🚨 캘린더 셀 더블클릭 로직 추가 (새 업무 추가)
-           ========================================= */
-        document.body.addEventListener('dblclick', (e) => {
-            const cell = e.target.closest('.cal-cell');
-            if (cell && !e.target.closest('.cal-task-badge')) {
-                // 더블클릭 시 글자 드래그 선택되는 현상 방지
-                if(window.getSelection) { window.getSelection().removeAllRanges(); }
-                
-                const dateStr = cell.dataset.date;
-                if (dateStr) {
-                    document.getElementById('new-task-category').value = '기본업무';
-                    document.getElementById('new-task-title').value = '';
-                    document.getElementById('new-task-status').value = '진행중'; // 🚨 진행중으로 자동 세팅
-                    document.getElementById('new-task-start').value = dateStr;   // 🚨 해당 날짜로 시작일 자동 세팅
-                    document.getElementById('new-task-end').value = '';
-                    document.getElementById('new-task-subitems-container').innerHTML = '';
-                    document.getElementById('task-add-modal').classList.remove('hidden');
-                    resizeAllTextareas();
-                    document.getElementById('new-task-title').focus(); // 🚨 제목 바로 입력 가능하도록 포커스
-                }
-            }
-        });
-
-        /* =========================================
            🚨 미래 월 자동 연동 (Cascading Updates) 헬퍼 
            ========================================= */
         function getMonthDiff(m1, m2) {
@@ -774,7 +759,7 @@
         async function syncFutureGroupAdd(uid, currentMonth, newGroup) {
             const futureMonths = getInitializedFutureMonths(globalDB, uid, currentMonth);
             for(let m of futureMonths) {
-                const copy = { ...newGroup, id: Date.now() + Math.random(), month: m, items: newGroup.items.map(i => ({...i, id: Date.now() + Math.random()})) };
+                const copy = { ...newGroup, id: Date.now() + Math.random(), month: m, items: (newGroup.items||[]).map(i => ({...i, id: Date.now() + Math.random()})) };
                 await setDoc(doc(firestoreDB, "monthlyChecklists", String(copy.id)), copy);
             }
         }
@@ -812,9 +797,9 @@
         async function syncFutureItemDelete(uid, currentMonth, syncItemId) {
             const futureMonths = getInitializedFutureMonths(globalDB, uid, currentMonth);
             for(let m of futureMonths) {
-                const targetGroup = globalMonthlyChecklists.find(c => c.userId === uid && c.month === m && c.items.some(i => i.syncItemId === syncItemId));
+                const targetGroup = globalMonthlyChecklists.find(c => c.userId === uid && c.month === m && (c.items||[]).some(i => i.syncItemId === syncItemId));
                 if (targetGroup) {
-                    targetGroup.items = targetGroup.items.filter(i => i.syncItemId !== syncItemId);
+                    targetGroup.items = (targetGroup.items||[]).filter(i => i.syncItemId !== syncItemId);
                     await updateDoc(doc(firestoreDB, "monthlyChecklists", String(targetGroup.id)), { items: targetGroup.items });
                 }
             }
@@ -825,7 +810,7 @@
             for(let m of futureMonths) {
                 const targetGroup = globalMonthlyChecklists.find(c => c.userId === uid && c.month === m && c.syncGroupId === syncGroupId);
                 if (targetGroup) {
-                    const targetIdx = targetGroup.items.findIndex(i => i.syncItemId === editedItem.syncItemId);
+                    const targetIdx = (targetGroup.items||[]).findIndex(i => i.syncItemId === editedItem.syncItemId);
                     const monthDiff = getMonthDiff(currentMonth, m);
                     
                     let shouldExist = false; let futureStatus = '';
@@ -1065,7 +1050,7 @@
         function renderCalendar() {
             const container = document.getElementById('calendar-container'); if(!container) return;
             
-            // 🚨 캘린더 상단 연/월 텍스트 실시간 갱신 로직 추가
+            // 캘린더 상단 연/월 텍스트 실시간 갱신 로직 
             const monthDisplay = document.getElementById('cal-month-display');
             if(monthDisplay) monthDisplay.textContent = `${calState.year}년 ${calState.month}월`;
             
@@ -1897,6 +1882,7 @@
                 else if (e.target.classList.contains('chk-card') || e.target.classList.contains('task-card')) { draggedItem = e.target; dragType = 'card'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('card-dragging'), 0); }
                 else if (e.target.classList.contains('memo-row')) { draggedItem = e.target; dragType = 'memo'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('memo-dragging'), 0); }
                 else if (e.target.classList.contains('sub-item-row')) { draggedItem = e.target; dragType = 'subItem'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('memo-dragging'), 0); }
+                // 🚨 캘린더 배지 드래그 시작 추가
                 else if (e.target.classList.contains('cal-task-badge')) { draggedItem = e.target; dragType = 'cal-badge'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('item-dragging'), 0); }
             }
         });
@@ -1929,6 +1915,7 @@
                     if (e.clientY > offset) row.after(draggedItem); else row.before(draggedItem);
                 }
             }
+            // 🚨 캘린더 배지 드래그 오버 로직 추가
             else if (dragType === 'cal-badge') {
                 const badge = e.target.closest('.cal-task-badge');
                 const cell = e.target.closest('.cal-cell');
@@ -2027,6 +2014,7 @@
                     }
                 }
             }
+            // 🚨 캘린더 배지 드롭 시 날짜 및 순서 업데이트 로직
             else if (dragType === 'cal-badge') {
                 const cell = draggedItem.closest('.cal-cell');
                 if (cell) {
@@ -2203,6 +2191,7 @@
                     if((n === '진행중' || n === '보류') && !t.startDate) updatePayload.startDate = today;
                     await updateDoc(doc(firestoreDB, "tasks", String(taskId)), updatePayload);
                     
+                    // 🚨 캘린더 팝업에서 상태를 바꿨다면 팝업창을 즉시 자동으로 닫아줍니다.
                     if(c.closest('#task-edit-modal-body')) {
                         document.getElementById('task-edit-modal').classList.add('hidden');
                     }
