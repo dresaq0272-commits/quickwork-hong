@@ -178,35 +178,35 @@
         #task-edit-modal .task-card { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid var(--color-border); background: var(--color-surface); margin-top: 0.5rem; }
 
         /* =========================================
-           4. 보고서 레이아웃 (🚨 띄어쓰기 및 PDF 잘림 완벽 픽스)
+           4. 보고서 레이아웃 (🚨 PDF 잘림 및 띄어쓰기 붕괴 방어)
            ========================================= */
         .report-header { text-align: center; margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 3px solid var(--color-text-main); }
         .report-title-main { font-size: 1.8rem; font-weight: 900; line-height: 1.3; white-space: pre-line; margin-bottom: 0.5rem; color: var(--color-text-main); letter-spacing: -0.02em; }
         .report-meta { font-size: 0.9rem; color: var(--color-text-sub); font-weight: 500; }
         .report-paper { background: var(--color-surface); padding: 3.5rem 3rem; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--color-border); max-width: 850px; margin: 0 auto; color: var(--color-text-main); }
         
-        .group-category { margin-bottom: 3rem; }
-        .group-category-title { font-size: 1.25rem; font-weight: 800; color: var(--color-primary); padding-bottom: 0.5rem; border-bottom: 2px solid var(--color-border); margin-bottom: 1.5rem; letter-spacing: -0.01em; }
+        .group-category { margin-bottom: 3rem; } 
+        .group-category-title { font-size: 1.25rem; font-weight: 800; color: var(--color-primary); padding-bottom: 0.5rem; border-bottom: 2px solid var(--color-border); margin-bottom: 1.5rem; letter-spacing: -0.01em; page-break-after: avoid; break-after: avoid; }
         
         .group-status { margin-bottom: 1.5rem; padding-left: 1.2rem; border-left: 3px solid var(--color-border); }
         .group-status.done { border-left-color: var(--status-done); }
         .group-status.ing { border-left-color: var(--status-ing); }
-        .group-status-title { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; display: inline-block; padding: 0.3rem 0.8rem; border-radius: 6px; color: var(--color-text-main); }
+        .group-status-title { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; display: inline-block; padding: 0.3rem 0.8rem; border-radius: 6px; color: var(--color-text-main); } 
         .group-status-title.done { color: #064E3B; background: #D1FAE5; }
         .group-status-title.ing { color: #1E3A8A; background: #DBEAFE; }
         
-        .report-task { display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; margin-bottom: 0; padding: 1rem 0.5rem; border-bottom: 1px solid var(--color-bg); }
+        .report-task { display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; margin-bottom: 0; padding: 1rem 0.5rem; border-bottom: 1px solid var(--color-bg); page-break-inside: avoid; break-inside: avoid; } 
         .report-task:last-child { border-bottom: none; }
         .report-task-content { flex: 1; min-width: 0; } 
-        .report-task-title { font-weight: 700; font-size: 1.05rem; color: var(--color-text-main); margin-bottom: 0.4rem; display: block; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
-        .report-task-title::before { content: '▪ '; color: var(--color-border); font-size: 0.8rem; margin-top: 0.1rem; }
+        .report-task-title { font-weight: 700; font-size: 1.05rem; color: var(--color-text-main); margin-bottom: 0.4rem; display: block; line-height: 1.4; white-space: pre-wrap; word-break: break-word; } 
+        .report-task-title::before { content: '▪ '; color: var(--color-border); font-size: 0.8rem; vertical-align: middle; }
         
         .report-task-date { flex-shrink: 0; font-size: 0.85rem; color: var(--color-text-sub); text-align: right; min-width: 150px; line-height: 1.6; font-weight: 500; display: flex; flex-direction: column; align-items: flex-end; }
         .duration-badge { display: inline-block; border: 1px solid var(--color-border); color: var(--color-text-sub); background: transparent; padding: 0.1rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem; margin-top: 4px; }
         .report-task-subs { padding-left: 1.2rem; font-size: 0.9rem; color: var(--color-text-sub); }
         .report-task-subs li { margin-bottom: 0.25rem; line-height: 1.5; list-style: none; white-space: pre-wrap; word-break: keep-all; }
         
-        /* 🚨 PDF 출력 시 띄어쓰기 붕괴 & 페이지 잘림 강제 방어 클래스 */
+        /* 🚨 PDF 출력 시 띄어쓰기 파괴(html2canvas 렌더링 버그) 방어막 */
         .pdf-export-mode * { letter-spacing: 0px !important; word-spacing: 0px !important; }
         .pdf-export-mode .report-task { display: block !important; page-break-inside: avoid !important; break-inside: avoid !important; padding: 1.5rem 0.5rem; border-bottom: 1px solid #E2E8F0; }
         .pdf-export-mode .group-category { page-break-inside: avoid !important; break-inside: avoid !important; }
@@ -464,6 +464,7 @@
             }
         }
 
+        /* 🚨 무적 렌더링 방어막 1: 화면 렌더러 보호 */
         function refreshCurrentView(target) {
             try {
                 if (target === 'dashboard') renderDashList();
@@ -550,9 +551,11 @@
                 onSnapshot(collection(firestoreDB, "tasks"), (snapshot) => {
                     globalTasks = snapshot.docs.map(d => {
                         let data = d.data();
+                        if(!data) return null;
                         if(!data.subItems) data.subItems = [];
                         return data;
-                    }).sort((a, b) => (a.order || 0) - (b.order || 0));
+                    }).filter(x => x).sort((a, b) => (a.order || 0) - (b.order || 0));
+                    
                     triggerRefreshIfActive('dashboard');
                     triggerRefreshIfActive('calendar'); 
                     
@@ -562,7 +565,7 @@
                         const card = editModalBody.querySelector('.task-card');
                         if (card) {
                             const taskId = Number(card.dataset.id);
-                            const updatedT = globalTasks.find(x => x.id === taskId);
+                            const updatedT = globalTasks.find(x => x && x.id === taskId);
                             if (updatedT) editModalBody.innerHTML = createCardHTML({...updatedT, isOpen: true});
                             else modal.classList.add('hidden'); 
                         }
@@ -572,9 +575,10 @@
                 onSnapshot(collection(firestoreDB, "checklists"), (snapshot) => {
                     globalChecklists = snapshot.docs.map(d => {
                         let data = d.data();
+                        if(!data) return null;
                         if(!data.items) data.items = [];
                         return data;
-                    }).sort((a, b) => {
+                    }).filter(x => x).sort((a, b) => {
                         if(a.order !== undefined && b.order !== undefined) return a.order - b.order;
                         return b.id - a.id;
                     });
@@ -584,9 +588,10 @@
                 onSnapshot(collection(firestoreDB, "monthlyChecklists"), (snapshot) => {
                     globalMonthlyChecklists = snapshot.docs.map(d => {
                         let data = d.data();
+                        if(!data) return null;
                         if(!data.items) data.items = [];
                         return data;
-                    }).sort((a, b) => {
+                    }).filter(x => x).sort((a, b) => {
                         if(a.order !== undefined && b.order !== undefined) return a.order - b.order;
                         return b.id - a.id;
                     });
@@ -594,7 +599,7 @@
                 });
 
                 onSnapshot(collection(firestoreDB, "reports"), (snapshot) => {
-                    globalReports = snapshot.docs.map(d => d.data()).sort((a, b) => b.id - a.id);
+                    globalReports = snapshot.docs.map(d => d.data()).filter(x => x).sort((a, b) => b.id - a.id);
                     triggerRefreshIfActive('report');
                 });
 
@@ -630,7 +635,7 @@
             }, 100);
         });
 
-        /* 🚨 스크롤 튀어오름(Jump) 방지 엔진 */
+        /* 🚨 스크롤 튀어오름 방지 엔진 */
         function autoResizeTextarea(el) {
             if (!el || el.tagName !== 'TEXTAREA') return;
             if (el.offsetWidth === 0 && el.offsetHeight === 0) return;
@@ -658,9 +663,9 @@
         function getCurrentUserId() { const session = sessionStorage.getItem('currentUser'); return session ? JSON.parse(session).id : null; }
         function toLocalISOString(dateObj) { const tz = dateObj.getTimezoneOffset() * 60000; return (new Date(dateObj.getTime() - tz)).toISOString().split('T')[0]; }
         function getTodayString() { return toLocalISOString(new Date()); }
-        function formatShortDate(dateStr) { if (!dateStr) return '미정'; const d = new Date(dateStr); return `${String(d.getFullYear()).slice(2)}년 ${d.getMonth()+1}월 ${d.getDate()}일`; }
-        function getDaysDiff(startStr, endStr) { if (!startStr || !endStr) return 0; return Math.floor((new Date(endStr) - new Date(startStr)) / (1000 * 60 * 60 * 24)) + 1; }
-        function getWeekInfo(dateStr) { const date = dateStr ? new Date(dateStr) : new Date(); const year = date.getFullYear(), month = date.getMonth() + 1, firstDay = new Date(year, month - 1, 1).getDay(); return { year, month, week: Math.ceil((date.getDate() + firstDay) / 7) }; }
+        function formatShortDate(dateStr) { if (!dateStr) return '미정'; let d = new Date(dateStr); if(isNaN(d.getTime())) return '미정'; return `${String(d.getFullYear()).slice(2)}년 ${d.getMonth()+1}월 ${d.getDate()}일`; }
+        function getDaysDiff(startStr, endStr) { if (!startStr || !endStr) return 0; let s = new Date(startStr); let e = new Date(endStr); if(isNaN(s.getTime())||isNaN(e.getTime())) return 0; return Math.floor((e - s) / (1000 * 60 * 60 * 24)) + 1; }
+        function getWeekInfo(dateStr) { let date = dateStr ? new Date(dateStr) : new Date(); if(isNaN(date.getTime())) date = new Date(); const year = date.getFullYear(), month = date.getMonth() + 1, firstDay = new Date(year, month - 1, 1).getDay(); return { year, month, week: Math.ceil((date.getDate() + firstDay) / 7) }; }
         function getCurrentMondayStr() { const today = new Date(), day = today.getDay(), diff = today.getDate() - day + (day === 0 ? -6 : 1); return toLocalISOString(new Date(today.setDate(diff))); }
         function getCurrentMonthStr() { const today = new Date(); return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`; }
         function showToast(msg) { const container = document.getElementById('toast-container'); const toast = document.createElement('div'); toast.className = 'toast'; toast.innerHTML = `🎉 <span>${msg}</span>`; container.appendChild(toast); setTimeout(() => toast.remove(), 3500); }
@@ -742,6 +747,7 @@
                             await setDoc(doc(firestoreDB, "monthlyChecklists", String(newGroup.id)), newGroup);
                         }
                     }
+                    
                     initMap[`${uid}_${nextMonth}`] = true;
                     curr = nextMonth;
                 }
@@ -753,7 +759,7 @@
         }
 
         function getInitializedFutureMonths(db, uid, currentMonth) {
-            if (!globalDB.monthlyChecklistInit) return [];
+            if (!globalDB || !globalDB.monthlyChecklistInit) return [];
             return Object.keys(globalDB.monthlyChecklistInit)
                 .filter(k => k.startsWith(`${uid}_`))
                 .map(k => k.replace(`${uid}_`, ''))
@@ -813,7 +819,7 @@
                 for(let m of futureMonths) {
                     const targetGroup = (globalMonthlyChecklists||[]).find(c => c && c.userId === uid && c.month === m && (c.items||[]).some(i => i && i.syncItemId === syncItemId));
                     if (targetGroup) {
-                        targetGroup.items = (targetGroup.items||[]).filter(i => i.syncItemId !== syncItemId);
+                        targetGroup.items = (targetGroup.items||[]).filter(i => i && i.syncItemId !== syncItemId);
                         await updateDoc(doc(firestoreDB, "monthlyChecklists", String(targetGroup.id)), { items: targetGroup.items });
                     }
                 }
@@ -861,7 +867,7 @@
             const name = document.getElementById('reg-name').value.trim(), id = document.getElementById('reg-id').value.trim(), pw = document.getElementById('reg-pw').value.trim();
             if(!name || !id || !pw) return alert('모든 항목을 입력해주세요.');
             const db = getDB();
-            if(db.users.find(u => u.id === id)) return alert('이미 존재하는 아이디입니다.');
+            if((db.users||[]).find(u => u && u.id === id)) return alert('이미 존재하는 아이디입니다.');
             db.users.push({ id, pw, name, role: 'user', status: 'pending', group: db.groups[0].name, menus: ['dashboard', 'calendar', 'report', 'checklist', 'monthly'] });
             saveDB(db); alert('회원가입이 신청되었습니다.\n관리자 승인 후 로그인이 가능합니다.'); document.getElementById('signup-modal').classList.add('hidden');
         });
@@ -869,11 +875,12 @@
         document.getElementById('login-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const id = document.getElementById('user-id').value.trim(), pw = document.getElementById('user-pw').value.trim();
-            const db = getDB(), user = db.users.find(u => u.id === id && u.pw === pw);
+            const db = getDB(), user = (db.users||[]).find(u => u && u.id === id && u.pw === pw);
             if (user) {
                 if(user.status !== 'approved') return alert('현재 관리자 승인 대기중이거나 차단된 계정입니다.');
                 if (document.getElementById('save-id').checked) localStorage.setItem('savedId', id); else localStorage.removeItem('savedId');
                 
+                if (!Array.isArray(user.menus)) user.menus = ['dashboard', 'calendar', 'report', 'checklist', 'monthly'];
                 if (!user.menus.includes('calendar')) user.menus.splice(1, 0, 'calendar');
                 sessionStorage.setItem('currentUser', JSON.stringify(user)); 
                 enterApp(user);
@@ -908,24 +915,30 @@
         });
 
         function enterApp(user) {
+            if(!user) return;
+            if (!Array.isArray(user.menus)) user.menus = ['dashboard', 'calendar', 'report', 'checklist', 'monthly'];
             if (!user.menus.includes('calendar')) {
                 user.menus.splice(1, 0, 'calendar');
                 sessionStorage.setItem('currentUser', JSON.stringify(user));
             }
 
             document.getElementById('login-view').classList.add('hidden'); document.getElementById('app-view').classList.remove('hidden');
-            const db = getDB();
-            document.title = db.settings.sysTitle || 'QuickWork'; document.getElementById('sidebar-title').innerHTML = `<span style="font-size:1.4rem;">💡</span> ${db.settings.sysTitle || 'QuickWork'}`;
             
-            const menuNames = db.settings.menuNames || { dashboard: '업무 대시보드', calendar: '업무 캘린더', report: '업무 보고서', checklist: '업무 체크리스트', monthly: '매월 체크리스트', admin: '설정' };
+            const db = getDB() || defaultDB;
+            const settings = db.settings || {};
+            const menuNames = settings.menuNames || { dashboard: '업무 대시보드', calendar: '업무 캘린더', report: '업무 보고서', checklist: '업무 체크리스트', monthly: '매월 체크리스트', admin: '설정' };
+            
+            document.title = settings.sysTitle || 'QuickWork'; 
+            document.getElementById('sidebar-title').innerHTML = `<span style="font-size:1.4rem;">💡</span> ${settings.sysTitle || 'QuickWork'}`;
+            
             ['dashboard', 'calendar', 'report', 'checklist', 'monthly', 'admin'].forEach(key => { if(document.getElementById(`menu-name-${key}`)) document.getElementById(`menu-name-${key}`).textContent = menuNames[key] || ''; });
             
             const ghosting = sessionStorage.getItem('adminGhosting');
             if (ghosting) {
-                document.getElementById('user-info').innerHTML = `<span style="color:#EF4444;">[열람중]</span> ${user.name} (${user.group})`;
+                document.getElementById('user-info').innerHTML = `<span style="color:#EF4444;">[열람중]</span> ${user.name || ''} (${user.group || ''})`;
                 document.getElementById('btn-stop-impersonation').classList.remove('hidden');
             } else {
-                document.getElementById('user-info').textContent = `${user.name} (${user.group})`;
+                document.getElementById('user-info').textContent = `${user.name || ''} (${user.group || ''})`;
                 document.getElementById('btn-stop-impersonation').classList.add('hidden');
             }
             
@@ -934,7 +947,7 @@
                 const target = item.dataset.target;
                 if (!user.menus.includes(target)) { item.classList.add('hidden'); } else { item.classList.remove('hidden'); if(!firstAllowedTarget) firstAllowedTarget = target; }
             });
-            if (localStorage.getItem('hideNoticeUntil') !== new Date().toLocaleDateString() && db.settings.notice && db.settings.notice.trim() !== '') { document.getElementById('notice-text').innerText = db.settings.notice; document.getElementById('notice-modal').classList.remove('hidden'); }
+            if (localStorage.getItem('hideNoticeUntil') !== new Date().toLocaleDateString() && settings.notice && settings.notice.trim() !== '') { document.getElementById('notice-text').innerText = settings.notice; document.getElementById('notice-modal').classList.remove('hidden'); }
             
             if(firstAllowedTarget) { 
                 document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); 
@@ -964,6 +977,7 @@
             item.addEventListener('click', (e) => { document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); e.currentTarget.classList.add('active'); renderMenu(e.currentTarget.dataset.target); });
         });
 
+        /* 🚨 무적 렌더링 방어막 2: 메인 화면 라우터 보호 */
         function renderMenu(target) {
             try {
                 const area = document.getElementById('content-area');
@@ -975,7 +989,7 @@
                 else if (target === 'admin') initAdmin(area);
             } catch (e) {
                 console.error("Menu Render Error:", e);
-                document.getElementById('content-area').innerHTML = `<div style="padding:3rem; text-align:center; color:var(--color-danger);">메뉴를 불러오는 중 오류가 발생했습니다.</div>`;
+                document.getElementById('content-area').innerHTML = `<div style="padding:3rem; text-align:center; color:var(--color-danger);">메뉴를 불러오는 중 오류가 발생했습니다.<br>새로고침(F5)을 시도해 주세요.</div>`;
             }
         }
 
@@ -1085,7 +1099,8 @@
                     if(c) {
                         const t = (globalTasks||[]).find(x=>x && x.id===Number(c.dataset.id)); 
                         if(t) {
-                            await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { subItems: [...(t.subItems||[]), {id:Date.now(), text:''}] });
+                            const newSub = [...(t.subItems||[]), {id:Date.now(), text:''}];
+                            await updateDoc(doc(firestoreDB, "tasks", String(t.id)), { subItems: newSub });
                             const editModalBody = document.getElementById('task-edit-modal-body');
                             if (editModalBody && !document.getElementById('task-edit-modal').classList.contains('hidden')) {
                                 const updatedT = (globalTasks||[]).find(x => x && x.id === t.id);
@@ -1120,9 +1135,7 @@
                 if (target.classList.contains('tab-btn') && !target.classList.contains('report-tab')) { dashState.tab = target.dataset.tab; initDashboard(document.getElementById('content-area')); }
                 if (target.classList.contains('report-tab')) { reportState.tab = target.dataset.tab; initReport(document.getElementById('content-area')); }
                 
-                if (target.id === 'btn-save-report') { 
-                    // PDF 방어막 적용된 저장 버튼은 위에서 리스너로 등록됨
-                }
+                // btn-save-report is handled above
                 
                 if (target.classList.contains('btn-add-remark')) { 
                     const list = target.closest('.report-remarks-list');
@@ -1287,17 +1300,17 @@
                         alert('설정이 성공적으로 반영되었습니다.');
                     }
                 }
-                if (target.id === 'btn-add-group') { const gName = document.getElementById('new-group-name').value.trim(); if (!gName) return alert('그룹명 입력'); const db = getDB(); if (db.groups.find(g => g.name === gName)) return alert('존재하는 그룹명'); db.groups.push({ id: Date.now(), name: gName }); saveDB(db); initAdmin(document.getElementById('content-area')); }
+                if (target.id === 'btn-add-group') { const gName = document.getElementById('new-group-name').value.trim(); if (!gName) return alert('그룹명 입력'); const db = getDB(); if ((db.groups||[]).find(g => g && g.name === gName)) return alert('존재하는 그룹명'); db.groups.push({ id: Date.now(), name: gName }); saveDB(db); initAdmin(document.getElementById('content-area')); }
                 if (target.id === 'btn-delete-group') {
-                    const db = getDB(); if (db.groups.length <= 1) return alert('최소 1개의 그룹 유지'); const groupId = Number(document.getElementById('delete-group-select').value); const groupToDelete = db.groups.find(g => g.id === groupId);
-                    if (confirm(`'${groupToDelete.name}' 그룹을 삭제하시겠습니까?\n회원들은 '${db.groups[0].name}'(으)로 이동됩니다.`)) { db.groups = db.groups.filter(g => g.id !== groupId); db.users.forEach(u => { if (u.group === groupToDelete.name) u.group = db.groups[0].name; }); saveDB(db); initAdmin(document.getElementById('content-area')); }
+                    const db = getDB(); if ((db.groups||[]).length <= 1) return alert('최소 1개의 그룹 유지'); const groupId = Number(document.getElementById('delete-group-select').value); const groupToDelete = (db.groups||[]).find(g => g && g.id === groupId);
+                    if (groupToDelete && confirm(`'${groupToDelete.name}' 그룹을 삭제하시겠습니까?\n회원들은 '${db.groups[0].name}'(으)로 이동됩니다.`)) { db.groups = db.groups.filter(g => g && g.id !== groupId); (db.users||[]).forEach(u => { if (u && u.group === groupToDelete.name) u.group = db.groups[0].name; }); saveDB(db); initAdmin(document.getElementById('content-area')); }
                 }
-                if (target.classList.contains('btn-del-user')) { if(target.disabled) return; const row = target.closest('tr'); if(row) { const uid = row.dataset.userId; if (confirm(`삭제?`)) { const db = getDB(); db.users = db.users.filter(u => u.id !== uid); saveDB(db); initAdmin(document.getElementById('content-area')); } } }
+                if (target.classList.contains('btn-del-user')) { if(target.disabled) return; const row = target.closest('tr'); if(row) { const uid = row.dataset.userId; if (confirm(`삭제?`)) { const db = getDB(); db.users = (db.users||[]).filter(u => u && u.id !== uid); saveDB(db); initAdmin(document.getElementById('content-area')); } } }
                 if (target.classList.contains('btn-change-pw')) { const row = target.closest('tr'); targetUserIdForPw = row ? row.dataset.userId : getCurrentUserId(); document.getElementById('new-pw-input').value = ''; document.getElementById('pw-change-modal').classList.remove('hidden'); document.getElementById('new-pw-input').focus(); }
                 if (target.id === 'btn-close-pw-modal') { document.getElementById('pw-change-modal').classList.add('hidden'); targetUserIdForPw = null; if(document.activeElement) document.activeElement.blur(); }
                 if (target.id === 'btn-save-pw') {
                     const newPw = document.getElementById('new-pw-input').value.trim(); if (!newPw) return alert('새 비밀번호를 입력하세요.');
-                    const db = getDB(); const userToUpdate = db.users.find(u => u.id === targetUserIdForPw);
+                    const db = getDB(); const userToUpdate = (db.users||[]).find(u => u && u.id === targetUserIdForPw);
                     if (userToUpdate) {
                         userToUpdate.pw = newPw; saveDB(db); alert(`비밀번호가 성공적으로 변경되었습니다.`);
                         const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
@@ -1310,7 +1323,7 @@
                 if (target.classList.contains('btn-view-user')) {
                     const row = target.closest('tr');
                     if(row) {
-                        const uid = row.dataset.userId; const db = getDB(); const targetUser = db.users.find(u => u.id === uid);
+                        const uid = row.dataset.userId; const db = getDB(); const targetUser = (db.users||[]).find(u => u && u.id === uid);
                         if (targetUser) {
                             const currentAdminSession = sessionStorage.getItem('currentUser'); sessionStorage.setItem('adminGhosting', currentAdminSession);
                             sessionStorage.setItem('currentUser', JSON.stringify(targetUser)); enterApp(targetUser);
@@ -1424,7 +1437,7 @@
                     if(chkCard) {
                         const isMonthly = chkCard.dataset.isMonthly === 'true';
                         const listId = Number(chkCard.dataset.chkId);
-                        const list = isMonthly ? globalMonthlyChecklists.find(c => c && c.id === listId) : globalChecklists.find(c => c && c.id === listId);
+                        const list = isMonthly ? (globalMonthlyChecklists||[]).find(c => c && c.id === listId) : (globalChecklists||[]).find(c => c && c.id === listId);
                         if(list) {
                             const currentItemNodes = Array.from(chkCard.querySelectorAll('.chk-item-row'));
                             const sortedIds = currentItemNodes.map(node => Number(node.dataset.itemId));
@@ -1476,7 +1489,7 @@
                         const isMonthly = chkCard.dataset.isMonthly === 'true';
                         const listId = Number(chkCard.dataset.chkId);
                         const itemId = Number(itemRow.dataset.itemId);
-                        const list = isMonthly ? globalMonthlyChecklists.find(c => c && c.id === listId) : globalChecklists.find(c => c && c.id === listId);
+                        const list = isMonthly ? (globalMonthlyChecklists||[]).find(c => c && c.id === listId) : (globalChecklists||[]).find(c => c && c.id === listId);
                         if(list) {
                             const item = (list.items||[]).find(i => i && i.id === itemId);
                             if(item) {
