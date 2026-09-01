@@ -187,7 +187,6 @@
         .cal-task-badge:active { cursor: grabbing; }
         .cal-cell.other-month { background: var(--color-bg); opacity: 0.5; }
         
-        /* 🚨 캘린더 모달 UI 디자인 (X버튼 위치 수정 적용됨) */
         #task-edit-modal .modal-content { 
             max-width: 650px; 
             background: var(--color-bg); 
@@ -218,35 +217,43 @@
         #task-edit-modal .task-card { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid var(--color-border); background: var(--color-surface); margin-top: 0.5rem; }
 
         /* =========================================
-           4. 보고서 레이아웃 (PDF 잘림 방지 추가)
+           4. 보고서 레이아웃 (PDF 띄어쓰기 버그 & 잘림 완벽 해결)
            ========================================= */
-        .report-header { text-align: center; margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 3px solid var(--color-text-main); page-break-after: avoid; break-after: avoid; }
+        .report-header { text-align: center; margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 3px solid var(--color-text-main); }
         .report-title-main { font-size: 1.8rem; font-weight: 900; line-height: 1.3; white-space: pre-line; margin-bottom: 0.5rem; color: var(--color-text-main); letter-spacing: -0.02em; }
         .report-meta { font-size: 0.9rem; color: var(--color-text-sub); font-weight: 500; }
         .report-paper { background: var(--color-surface); padding: 3.5rem 3rem; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--color-border); max-width: 850px; margin: 0 auto; color: var(--color-text-main); }
         
-        /* 🚨 PDF 내보내기 시 페이지 중간에서 잘리지 않도록 강제 방어 */
-        .group-category { margin-bottom: 3rem; page-break-inside: avoid; break-inside: avoid; }
-        .report-task { display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; margin-bottom: 0; padding: 1rem 0.5rem; border-bottom: 1px solid var(--color-bg); page-break-inside: avoid; break-inside: avoid; }
-        
+        .group-category { margin-bottom: 3rem; } /* 🚨 통째로 잘리는 오류를 막기 위해 page-break 제거 */
         .group-category-title { font-size: 1.25rem; font-weight: 800; color: var(--color-primary); padding-bottom: 0.5rem; border-bottom: 2px solid var(--color-border); margin-bottom: 1.5rem; letter-spacing: -0.01em; page-break-after: avoid; break-after: avoid; }
+        
         .group-status { margin-bottom: 1.5rem; padding-left: 1.2rem; border-left: 3px solid var(--color-border); }
         .group-status.done { border-left-color: var(--status-done); }
         .group-status.ing { border-left-color: var(--status-ing); }
-        .group-status-title { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.8rem; border-radius: 6px; color: var(--color-text-main); }
+        .group-status-title { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; display: inline-block; padding: 0.3rem 0.8rem; border-radius: 6px; color: var(--color-text-main); } /* 🚨 inline-flex 제거 (띄어쓰기 파괴 방어) */
         .group-status-title.done { color: #064E3B; background: #D1FAE5; }
         .group-status-title.ing { color: #1E3A8A; background: #DBEAFE; }
         
+        .report-task { display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; margin-bottom: 0; padding: 1rem 0.5rem; border-bottom: 1px solid var(--color-bg); page-break-inside: avoid; break-inside: avoid; } /* 🚨 개별 업무 단위로 페이지 잘림 방어 */
         .report-task:last-child { border-bottom: none; }
         .report-task-content { flex: 1; min-width: 0; } 
-        .report-task-title { font-weight: 700; font-size: 1.05rem; color: var(--color-text-main); margin-bottom: 0.4rem; display: flex; align-items: flex-start; gap: 0.4rem; line-height: 1.4; white-space: pre-wrap; word-break: keep-all; }
-        .report-task-title::before { content: '▪'; color: var(--color-border); font-size: 0.8rem; margin-top: 0.1rem; }
+        .report-task-title { font-weight: 700; font-size: 1.05rem; color: var(--color-text-main); margin-bottom: 0.4rem; display: block; line-height: 1.4; white-space: pre-wrap; word-break: break-word; } /* 🚨 Block 처리 및 word-break 수정 */
+        .report-task-title::before { content: '▪ '; color: var(--color-border); font-size: 0.8rem; vertical-align: middle; }
         
         .report-task-date { flex-shrink: 0; font-size: 0.85rem; color: var(--color-text-sub); text-align: right; min-width: 150px; line-height: 1.6; font-weight: 500; display: flex; flex-direction: column; align-items: flex-end; }
         .duration-badge { display: inline-block; border: 1px solid var(--color-border); color: var(--color-text-sub); background: transparent; padding: 0.1rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem; margin-top: 4px; }
         .report-task-subs { padding-left: 1.2rem; font-size: 0.9rem; color: var(--color-text-sub); }
         .report-task-subs li { margin-bottom: 0.25rem; line-height: 1.5; list-style: none; white-space: pre-wrap; word-break: keep-all; }
         
+        /* 🚨 PDF 출력 시 띄어쓰기 파괴(html2canvas 렌더링 버그) 방어막 */
+        .pdf-export-mode { letter-spacing: normal !important; word-spacing: normal !important; }
+        .pdf-export-mode * { letter-spacing: normal !important; word-spacing: normal !important; word-break: break-word !important; }
+        .pdf-export-mode .report-task { display: block !important; overflow: hidden; page-break-inside: avoid !important; break-inside: avoid !important; padding: 1.5rem 0.5rem; border-bottom: 1px solid #E2E8F0; }
+        .pdf-export-mode .report-task-content { float: left !important; width: calc(100% - 160px) !important; }
+        .pdf-export-mode .report-task-date { float: right !important; width: 150px !important; text-align: right !important; }
+        .pdf-export-mode .group-status-title { display: inline-block !important; }
+        .pdf-export-mode .report-task-title { display: block !important; }
+
         .archive-list { display: flex; flex-direction: column; gap: 1rem; max-width: 850px; margin: 0 auto; }
         .archive-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.2rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--border-radius); cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow-sm); }
         .archive-item:hover { border-color: var(--color-primary); box-shadow: var(--shadow-md); transform: translateY(-2px); }
@@ -336,7 +343,7 @@
         </div>
     </div>
 
-    <!-- 🚨 새 업무 추가 모달 (하위 항목 추가 UI 신설) -->
+    <!-- 🚨 새 업무 추가 모달 -->
     <div id="task-add-modal" class="modal-overlay hidden" style="z-index: 1200;">
         <div class="modal-content" style="max-height: 85vh; overflow-y: auto;">
             <h2 style="margin-bottom: 1.5rem; font-weight: 800; color: var(--color-text-main);">+ 새 업무 추가</h2>
@@ -671,7 +678,6 @@
             }, 100);
         });
 
-        /* 🚨 입력 시 스크롤 튀어오름 방지 엔진 */
         function autoResizeTextarea(el) {
             if (!el || el.tagName !== 'TEXTAREA') return;
             if (el.offsetWidth === 0 && el.offsetHeight === 0) return;
@@ -720,7 +726,7 @@
             }
         });
 
-        /* 🚨 미래 월 자동 연동 엔진 (무결성 방어막 탑재) */
+        /* 🚨 미래 월 자동 연동 엔진 */
         function getMonthDiff(m1, m2) {
             const [y1, mo1] = m1.split('-').map(Number);
             const [y2, mo2] = m2.split('-').map(Number);
@@ -917,18 +923,23 @@
             if(document.activeElement) document.activeElement.blur();
         });
         
-        // 🚨 PDF 다운로드 '페이지 잘림 방지' 옵션 추가
+        // 🚨 PDF 다운로드 클릭 이벤트 (page-break 방어 및 pdf 전용 모드 적용)
         document.getElementById('btn-save-pdf').addEventListener('click', () => {
             const element = document.getElementById('report-modal-body');
+            element.classList.add('pdf-export-mode'); // 띄어쓰기 파괴 방지 클래스 부착
+            
             const opt = { 
-                margin: 10, 
+                margin: [15, 10, 15, 10], 
                 filename: '업무보고서.pdf', 
-                image: { type: 'jpeg', quality: 0.98 }, 
-                html2canvas: { scale: 2 }, 
+                image: { type: 'jpeg', quality: 1.0 }, 
+                html2canvas: { scale: 2, useCORS: true }, 
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak: { mode: ['css', 'legacy'], avoid: ['.report-task', '.group-category'] }
+                pagebreak: { mode: ['css'] } // 개별 report-task 안쪽 잘림 방지
             };
-            html2pdf().set(opt).from(element).save();
+            
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.classList.remove('pdf-export-mode'); // 다운 완료 후 클래스 해제
+            });
         });
 
         function enterApp(user) {
@@ -1075,7 +1086,7 @@
         }
 
         /* =========================================
-           🚨 캘린더 로직
+           🚨 신규 추가: 업무 캘린더 단일표기 및 드래그 로직
            ========================================= */
         let calState = { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
         function initCalendar(container) {
@@ -1184,344 +1195,6 @@
             html += '</div>';
             container.innerHTML = html;
         }
-
-        /* =========================================
-           4. 보고서 로직 
-           ========================================= */
-        let reportState = { tab: 'weekly', selectedWeek: '', selectedMonth: '' };
-        function generateWeeklyOptions() {
-            let options = ''; const currentMonday = new Date(getCurrentMondayStr());
-            for(let i=0; i<12; i++) {
-                const m = new Date(currentMonday); m.setDate(m.getDate() - (i * 7)); const dateStr = toLocalISOString(m); const info = getWeekInfo(dateStr);
-                const label = i === 0 ? `현재 주차 (${info.year}년 ${info.month}월 ${info.week}주차)` : `${info.year}년 ${info.month}월 ${info.week}주차`;
-                options += `<option value="${dateStr}" ${(reportState.selectedWeek === dateStr) ? 'selected' : ''}>${label}</option>`;
-            } return `<select id="select-weekly" class="input-text" style="width:260px; font-weight:700; cursor:pointer;">${options}</select>`;
-        }
-        function generateMonthlyOptions() {
-            let options = ''; const today = new Date();
-            for(let i=0; i<6; i++) {
-                const d = new Date(today.getFullYear(), today.getMonth() - i, 1); const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                const label = i === 0 ? `이번 달 (${d.getFullYear()}년 ${d.getMonth() + 1}월)` : `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
-                options += `<option value="${val}" ${(reportState.selectedMonth === val) ? 'selected' : ''}>${label}</option>`;
-            } return `<select id="select-monthly" class="input-text" style="width:220px; font-weight:700; cursor:pointer;">${options}</select>`;
-        }
-        function initReport(container) {
-            container.innerHTML = `<div class="tabs"><button class="tab-btn report-tab ${reportState.tab === 'weekly' ? 'active' : ''}" data-tab="weekly">주간 보고서</button><button class="tab-btn report-tab ${reportState.tab === 'monthly' ? 'active' : ''}" data-tab="monthly">월간 보고서</button><button class="tab-btn report-tab ${reportState.tab === 'archive' ? 'active' : ''}" data-tab="archive">보고서 리스트</button></div><div id="report-content-area"></div>`;
-            if (reportState.tab === 'archive') renderArchive(document.getElementById('report-content-area')); else renderReportContent();
-        }
-        function renderReportContent() {
-            const area = document.getElementById('report-content-area'); let controls = reportState.tab === 'weekly' ? generateWeeklyOptions() : generateMonthlyOptions();
-            const { title, html } = generateReportHTML(reportState.tab);
-            area.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.5rem; background:var(--color-surface); padding:1rem 1.5rem; border-radius:8px; border:1px solid var(--color-border); box-shadow:var(--shadow-sm);"><div style="display:flex; align-items:center; gap:1rem;"><span style="font-weight:700; color:var(--color-text-sub);">기간 선택:</span>${controls}</div><button class="btn btn-primary" id="btn-save-report">📥 현재 보고서 스냅샷 저장</button></div>
-                <div class="report-paper" id="current-report-paper"><div class="report-header"><div class="report-title-main">${title}</div><div class="report-meta">작성일자: ${formatShortDate(getTodayString())}</div></div>${html}</div>`;
-            requestAnimationFrame(resizeAllTextareas);
-        }
-        function generateReportHTML(type) {
-            const uid = getCurrentUserId();
-            let periodStart, periodEnd, title, remarkKey;
-            
-            if (type === 'weekly') {
-                if (!reportState.selectedWeek) reportState.selectedWeek = getCurrentMondayStr();
-                periodStart = new Date(reportState.selectedWeek); periodEnd = new Date(periodStart); periodEnd.setDate(periodStart.getDate() + 6);
-                const info = getWeekInfo(reportState.selectedWeek); title = `${info.year}년 ${info.month}월 ${info.week}주차\n주간 업무보고서`; remarkKey = `weekly-${reportState.selectedWeek}`;
-            } else {
-                if (!reportState.selectedMonth) reportState.selectedMonth = getCurrentMonthStr();
-                const [y, m] = reportState.selectedMonth.split('-'); periodStart = new Date(y, m - 1, 1); periodEnd = new Date(y, m, 0);
-                title = `${y}년 ${parseInt(m)}월\n월간 업무보고서`; remarkKey = `monthly-${reportState.selectedMonth}`;
-            }
-            const pStartStr = toLocalISOString(periodStart), pEndStr = toLocalISOString(periodEnd);
-            
-            let targetTasks = globalTasks.filter(t => { 
-                if (t.userId !== uid) return false;
-                if (t.status === '대기' || t.status === '보류' || !t.startDate) return false;
-                const end = (t.status === '완료' && t.endDate) ? t.endDate : '9999-12-31';
-                if (t.status === '완료' && end >= pStartStr && end <= pEndStr) { t._reportStatus = '완료'; return true; }
-                if (t.startDate <= pEndStr && end >= pStartStr && !(t.status === '완료' && end >= pStartStr && end <= pEndStr)) { t._reportStatus = '진행중'; return true; }
-                return false;
-            });
-            targetTasks.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
-            
-            if (targetTasks.length === 0) return { title, html: '<div style="text-align:center; color:#94A3B8; padding:3rem; font-size:1.1rem;">보고할 업무가 없습니다.</div>' };
-            const grouped = {}; targetTasks.forEach(t => { if (!grouped[t.category]) grouped[t.category] = {}; if (!grouped[t.category][t._reportStatus]) grouped[t.category][t._reportStatus] = []; grouped[t.category][t._reportStatus].push(t); });
-            
-            let html = ''; const statusOrder = ['완료', '진행중']; 
-            for (const [category, statusGroup] of Object.entries(grouped)) {
-                html += `<div class="group-category"><div class="group-category-title">${category}</div>`;
-                statusOrder.forEach(status => {
-                    if (statusGroup[status] && statusGroup[status].length > 0) {
-                        const isDone = status === '완료';
-                        const statusClass = isDone ? 'done' : 'ing';
-                        const statusLabel = isDone ? '완료된 업무' : '진행 중인 업무';
-                        
-                        html += `<div class="group-status ${statusClass}"><div class="group-status-title ${statusClass}">${statusLabel}</div>`;
-                        statusGroup[status].forEach(t => {
-                            let dateStr = '';
-                            if (t.startDate) {
-                                dateStr = `<div>${formatShortDate(t.startDate)} ~ ${isDone && t.endDate ? formatShortDate(t.endDate) : '진행 중'}</div>`;
-                                if (isDone && t.endDate) dateStr += `<div style="margin-top:6px;"><span class="duration-badge">${getDaysDiff(t.startDate, t.endDate)}일 소요</span></div>`;
-                            } else dateStr = `<div>일정 미정</div>`;
-                            
-                            let subsHtml = t.subItems && t.subItems.length > 0 ? `<ul class="report-task-subs">${t.subItems.filter(s => s.text.trim()!=='').map(s => `<li>- ${s.text}</li>`).join('')}</ul>` : '';
-                            
-                            html += `
-                                <div class="report-task">
-                                    <div class="report-task-content"><div class="report-task-title">${t.title}</div>${subsHtml}</div>
-                                    <div class="report-task-date">${dateStr}</div>
-                                </div>
-                            `;
-                        }); html += `</div>`;
-                    }
-                }); html += `</div>`;
-            }
-            const userRemarks = (globalReportRemarks[remarkKey] || []).filter(r => r.userId === uid);
-            html += `<div class="group-category" style="margin-top: 3.5rem; border-top: 2px dashed var(--color-border); padding-top: 2.5rem;"><div class="group-category-title" style="border-bottom:none; margin-bottom: 0.5rem;">비고 및 특이사항</div><div class="report-remarks-list" data-remark-key="${remarkKey}">
-                        ${userRemarks.map(r => `<div class="sub-item-row" data-sub-id="${r.id}" style="margin-bottom:0.5rem; align-items:flex-start; width:100%;"><span style="color:var(--color-text-sub); padding-top:0.3rem;">•</span><textarea spellcheck="false" rows="1" class="inline-input remark-text" style="flex:1; width:100%; border-bottom: 1px dashed var(--color-border); border-radius: 0;">${r.text}</textarea><button class="btn-icon btn-del-remark" style="margin-top:0.1rem;">✕</button></div>`).join('')}
-                        <button class="btn-add-remark" style="margin-top: 1rem;">+ 특이사항 추가</button></div></div>`;
-            return { title, html };
-        }
-        function renderArchive(area) {
-            const uid = getCurrentUserId();
-            const userReports = globalReports.filter(r => r.userId === uid); 
-            if (userReports.length === 0) { area.innerHTML = `<div style="text-align:center; padding:4rem; color:var(--color-text-sub);">저장된 보고서가 없습니다.</div>`; return; }
-            area.innerHTML = `<div class="archive-list">${userReports.map(r => `<div class="archive-item" data-id="${r.id}"><div><div class="archive-title">${r.title.replace('\n', ' ')}</div><div class="archive-date">저장일자: ${new Date(r.id).toLocaleString()}</div></div><button class="btn-icon btn-delete-report" style="font-size:1.2rem;">🗑️</button></div>`).join('')}</div>`;
-        }
-
-        /* =========================================
-           5. 체크리스트 로직
-           ========================================= */
-        function getChecklistHTML(c, isMonthly) {
-            let items = Array.isArray(c.items) ? c.items : [];
-            let totalItems = items.length;
-            let checkedItems = items.filter(i => i && i.isChecked).length;
-            let progress = totalItems === 0 ? 0 : Math.round((checkedItems / totalItems) * 100);
-
-            let progressHTML = `
-                <div class="chk-progress-wrap">
-                    <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--color-text-sub); margin-bottom:0.1rem;">
-                        <span style="font-weight:600;">달성률</span><span style="font-weight:700; color:var(--color-primary);">${progress}%</span>
-                    </div>
-                    <div class="chk-progress-bar"><div class="chk-progress-fill" style="width:${progress}%;"></div></div>
-                </div>
-            `;
-
-            return `
-                <div class="chk-card" draggable="true" data-chk-id="${c.id}" data-is-monthly="${isMonthly}">
-                    <div class="chk-header">
-                        <button class="btn-toggle-chk">${c.isOpen === false ? '▶' : '▼'}</button>
-                        <textarea spellcheck="false" rows="1" class="inline-input chk-title" placeholder="제목 입력" style="font-size:1.15rem; font-weight:800; color:var(--color-primary); background:transparent; border-color:transparent;">${c.title}</textarea>
-                        <div style="display:flex; gap:8px;">
-                            <button class="btn-icon btn-add-chk-item" title="항목 추가" style="color:var(--color-primary);">➕</button>
-                            <button class="btn-icon btn-uncheck-all" title="전체 해제">🔄</button>
-                            <button class="btn-icon btn-del-chk" title="그룹 삭제">🗑️</button>
-                        </div>
-                    </div>
-                    ${progressHTML}
-                    <div class="chk-body ${c.isOpen === false ? 'hidden' : ''}">
-                        <div class="chk-item-wrap">
-                        ${items.map(i => {
-                            if(!i) return '';
-                            let memos = Array.isArray(i.memos) ? i.memos : [];
-                            const memoOpen = i.isMemoOpen !== false;
-                            
-                            let statusSelect = '';
-                            if (isMonthly) {
-                                statusSelect = `<select class="inline-select monthly-item-status" data-item-id="${i.id}" style="width:65px; font-size:0.75rem; padding:0.1rem; text-align:center;">
-                                    <option value="당월" ${i.status==='당월'?'selected':''}>당월</option>
-                                    <option value="고정" ${i.status==='고정'?'selected':''}>고정</option>
-                                    <option value="이월" ${i.status==='이월'?'selected':''}>이월</option>
-                                </select>`;
-                            }
-                            
-                            return `<div class="chk-item-row ${i.isChecked ? 'completed' : ''}" draggable="true" data-item-id="${i.id}">
-                                <span class="drag-handle" title="드래그하여 순서 변경">⋮⋮</span>
-                                <input type="checkbox" class="chk-checkbox" ${i.isChecked ? 'checked' : ''}>
-                                <div class="chk-inputs">
-                                    <div style="display:flex; align-items:flex-start; gap:4px; width: 100%;">
-                                        <textarea spellcheck="false" rows="1" class="inline-input chk-text" placeholder="항목 입력" style="flex:1;">${i.text}</textarea>
-                                        ${statusSelect}
-                                        <button class="btn-icon btn-toggle-memo" title="메모 접기/펼치기" style="font-size:0.75rem; padding:0.2rem; margin-top:0.2rem;">${memoOpen ? '💬▼' : '💬▶'}</button>
-                                    </div>
-                                    <div class="chk-memo-list ${memoOpen ? '' : 'hidden'}" style="width: 100%;">
-                                        ${memos.map((m, mIdx) => `
-                                            <div class="memo-row" draggable="true" style="display:flex; align-items:flex-start; gap:4px; margin-top:2px; width: 100%;">
-                                                <span class="drag-handle memo-drag-handle" title="드래그하여 순서 변경">⋮⋮</span>
-                                                <textarea spellcheck="false" rows="1" class="inline-input chk-memo" data-idx="${mIdx}" placeholder="메모 기재" style="flex:1; width: 100%;">${m}</textarea>
-                                                <button class="btn-icon btn-del-memo" data-idx="${mIdx}" style="padding:0.1rem; font-size:0.7rem;">✕</button>
-                                            </div>
-                                        `).join('')}
-                                        <button class="btn-add-memo" style="font-size:0.75rem; background:none; border:none; color:var(--color-primary); cursor:pointer; margin-top:4px; margin-left:1.2rem;">+ 메모 추가</button>
-                                    </div>
-                                </div>
-                                <button class="btn-icon btn-del-chk-item">✕</button>
-                            </div>`
-                        }).join('')}
-                        </div>
-                    </div>
-                </div>`;
-        }
-
-        let chkState = { search: '' };
-        function initChecklist(container) {
-            container.innerHTML = `
-                <div class="dashboard-header" style="margin-bottom: 2rem;">
-                    <div style="display:flex; align-items:center; gap:1rem;">
-                        <h2 style="font-size:1.5rem; font-weight:800; color:var(--color-text-main);">✅ 업무 체크리스트</h2>
-                        <input type="text" id="chk-search" class="input-text" placeholder="제목/항목 검색..." value="${chkState.search}" style="width:300px;">
-                    </div>
-                    <button class="btn btn-primary" id="btn-add-checklist">+ 새 그룹</button>
-                </div>
-                <div id="checklist-container"></div>
-            `;
-            renderChecklist();
-        }
-        function renderChecklist() {
-            const container = document.getElementById('checklist-container'); if(!container) return;
-            const lastScrollY = window.scrollY; const cardScrolls = new Map();
-            document.querySelectorAll('.chk-card').forEach(card => { const body = card.querySelector('.chk-body'); if (body) cardScrolls.set(card.dataset.chkId, body.scrollTop); });
-
-            const uid = getCurrentUserId();
-            if(!Array.isArray(globalChecklists)) globalChecklists = [];
-            let filtered = globalChecklists.filter(c => c && c.userId === uid); 
-            
-            if (chkState.search.trim() !== '') {
-                const term = chkState.search.toLowerCase();
-                filtered = filtered.filter(c => c.title.toLowerCase().includes(term) || (Array.isArray(c.items) && c.items.some(i => i && (i.text.toLowerCase().includes(term) || (Array.isArray(i.memos) && i.memos.some(m => m.toLowerCase().includes(term)))))));
-            }
-            if (!filtered || filtered.length === 0) { 
-                container.innerHTML = `<div style="text-align:center; padding:5rem; color:var(--color-text-sub);">체크리스트가 없습니다.</div>`; return; 
-            }
-            container.innerHTML = `<div class="checklist-grid chk-list-wrap">${filtered.map(c => getChecklistHTML(c, false)).join('')}</div>`;
-
-            requestAnimationFrame(() => {
-                window.scrollTo(0, lastScrollY);
-                document.querySelectorAll('.chk-card').forEach(card => { const body = card.querySelector('.chk-body'); const cId = card.dataset.chkId; if (body && cardScrolls.has(cId)) body.scrollTop = cardScrolls.get(cId); });
-                resizeAllTextareas();
-            });
-        }
-
-        let monthlyChkState = { search: '', month: getCurrentMonthStr() };
-        function initMonthlyChecklist(container) {
-            container.innerHTML = `
-                <div class="dashboard-header" style="margin-bottom: 2rem;">
-                    <div style="display:flex; align-items:center; gap:1rem;">
-                        <h2 style="font-size:1.5rem; font-weight:800; color:var(--color-text-main);">🗓️ 매월 체크리스트</h2>
-                        <div style="display:flex; align-items:center; gap:0.5rem;">
-                            <button class="btn-icon" id="btn-prev-month" style="background:var(--color-primary-light); color:var(--color-primary);">◀</button>
-                            <input type="month" id="monthly-month-select" class="input-text" value="${monthlyChkState.month}" style="width:160px; font-weight:bold; margin:0;">
-                            <button class="btn-icon" id="btn-next-month" style="background:var(--color-primary-light); color:var(--color-primary);">▶</button>
-                        </div>
-                    </div>
-                    <button class="btn btn-primary" id="btn-add-monthly-checklist">+ 새 그룹</button>
-                </div>
-                <div id="monthly-checklist-container"></div>
-            `;
-            renderMonthlyChecklist();
-        }
-
-        async function renderMonthlyChecklist() {
-            const container = document.getElementById('monthly-checklist-container'); if(!container) return;
-            const lastScrollY = window.scrollY; const cardScrolls = new Map();
-            document.querySelectorAll('.chk-card').forEach(card => { const body = card.querySelector('.chk-body'); if (body) cardScrolls.set(card.dataset.chkId, body.scrollTop); });
-
-            const uid = getCurrentUserId();
-            await ensureMonthInitialized(globalDB, uid, monthlyChkState.month);
-            
-            if(!Array.isArray(globalMonthlyChecklists)) globalMonthlyChecklists = [];
-            let filtered = globalMonthlyChecklists.filter(c => c && c.userId === uid && c.month === monthlyChkState.month); 
-
-            if (filtered.length === 0) { container.innerHTML = `<div style="text-align:center; padding:5rem; color:var(--color-text-sub);">해당 월에 데이터가 없습니다.</div>`; return; }
-            container.innerHTML = `<div class="checklist-grid chk-list-wrap">${filtered.map(c => getChecklistHTML(c, true)).join('')}</div>`;
-
-            requestAnimationFrame(() => {
-                window.scrollTo(0, lastScrollY);
-                document.querySelectorAll('.chk-card').forEach(card => { const body = card.querySelector('.chk-body'); const cId = card.dataset.chkId; if (body && cardScrolls.has(cId)) body.scrollTop = cardScrolls.get(cId); });
-                resizeAllTextareas();
-            });
-        }
-
-        /* =========================================
-           6. 관리자 제어판 로직
-           ========================================= */
-        function initAdmin(container) {
-            const db = getDB(); if(!db) return;
-            container.innerHTML = `
-                <div class="dashboard-header"><h2 style="font-size:1.5rem; font-weight:800; color:var(--color-text-main);">⚙️ 설정</h2></div>
-                <div class="admin-section">
-                    <h3>🖥️ 시스템 기본 설정</h3>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1.5rem;">
-                        <div><label style="font-weight:700; font-size:0.9rem; margin-bottom:0.5rem; display:block;">시스템 전체 타이틀</label><input type="text" id="sys-title" class="input-text" value="${db.settings.sysTitle}"></div>
-                        <div style="grid-row: span 2;"><label style="font-weight:700; font-size:0.9rem; margin-bottom:0.5rem; display:block;">로그인 화면 공지사항</label><textarea id="sys-notice" class="input-text" style="height: 120px; resize:none;">${db.settings.notice}</textarea></div>
-                        <div><label style="font-weight:700; font-size:0.9rem; margin-bottom:0.5rem; display:block;">메뉴 이름 동적 변경</label>
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem;">
-                                <input type="text" id="admin-menu-dashboard" class="input-text" value="${db.settings.menuNames.dashboard}" placeholder="대시보드">
-                                <input type="text" id="admin-menu-calendar" class="input-text" value="${db.settings.menuNames.calendar || '업무 캘린더'}" placeholder="캘린더">
-                                <input type="text" id="admin-menu-report" class="input-text" value="${db.settings.menuNames.report}" placeholder="보고서">
-                                <input type="text" id="admin-menu-checklist" class="input-text" value="${db.settings.menuNames.checklist}" placeholder="체크리스트">
-                                <input type="text" id="admin-menu-monthly" class="input-text" value="${db.settings.menuNames.monthly}" placeholder="매월 체크리스트">
-                                <input type="text" id="admin-menu-admin" class="input-text" value="${db.settings.menuNames.admin}" placeholder="설정">
-                            </div>
-                        </div>
-                    </div>
-                    <div style="margin-top:1.5rem; text-align:right;">
-                        <input type="file" id="backup-file-input" accept=".json" style="display:none;">
-                        <button class="btn btn-outline" id="btn-restore-db" style="margin-right: 0.5rem; color: #EF4444; border-color: #EF4444;">📂 데이터 복원 (업로드)</button>
-                        <button class="btn btn-outline" id="btn-backup-db" style="margin-right: 0.5rem;">💾 전체 데이터 백업 다운로드</button>
-                        <button class="btn btn-primary" id="btn-save-sys-settings">설정 저장 및 반영</button>
-                    </div>
-                </div>
-
-                <div class="admin-section">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-                        <h3 style="margin:0; border:none; padding:0;">👥 회원 및 권한 관리</h3>
-                        <div style="display:flex; gap:0.5rem; align-items:center;">
-                            <input type="text" id="new-group-name" class="input-text" placeholder="새 그룹명" style="width:120px; padding:0.4rem;">
-                            <button class="btn btn-outline" id="btn-add-group" style="padding:0.4rem 0.8rem;">추가</button>
-                            <div style="width:1px; height:24px; background:var(--color-border); margin:0 0.5rem;"></div>
-                            <select id="delete-group-select" class="input-text" style="width:120px; padding:0.4rem;">
-                                ${db.groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('')}
-                            </select>
-                            <button class="btn btn-outline" id="btn-delete-group" style="color:#EF4444; border-color:#EF4444; padding:0.4rem 0.8rem;">삭제</button>
-                        </div>
-                    </div>
-                    <div class="admin-table-wrap">
-                        <table class="admin-table">
-                            <thead><tr><th>아이디</th><th>이름</th><th>상태 (승인)</th><th>그룹 (팀)</th><th>권한 등급</th><th>메뉴 접근 허용</th><th>관리 (보기/비번/삭제)</th></tr></thead>
-                            <tbody>
-                                ${db.users.map(u => `
-                                    <tr data-user-id="${u.id}">
-                                        <td style="font-weight:700;">${u.id}</td>
-                                        <td><input type="text" class="inline-input admin-edit-name" value="${u.name}" style="width:80px; padding:0.2rem;" title="클릭하여 이름 수정"></td>
-                                        <td><select class="inline-select admin-edit-status" ${u.role === 'admin' ? 'disabled' : ''}><option value="pending" ${u.status === 'pending' ? 'selected' : ''}>승인 대기</option><option value="approved" ${u.status === 'approved' ? 'selected' : ''}>정상 승인</option><option value="blocked" ${u.status === 'blocked' ? 'selected' : ''}>차단됨</option></select></td>
-                                        <td><select class="inline-select admin-edit-group">${db.groups.map(g => `<option value="${g.name}" ${u.group === g.name ? 'selected' : ''}>${g.name}</option>`).join('')}</select></td>
-                                        <td><select class="inline-select admin-edit-role" ${u.id === 'admin' ? 'disabled' : ''}><option value="user" ${u.role === 'user' ? 'selected' : ''}>일반 유저</option><option value="admin" ${u.role === 'admin' ? 'selected' : ''}>관리자</option></select></td>
-                                        <td><div class="menu-chk-group">
-                                            <label><input type="checkbox" class="admin-menu-chk" value="dashboard" ${u.menus.includes('dashboard') ? 'checked' : ''}> 대시보드</label>
-                                            <label><input type="checkbox" class="admin-menu-chk" value="calendar" ${u.menus.includes('calendar') ? 'checked' : ''}> 캘린더</label>
-                                            <label><input type="checkbox" class="admin-menu-chk" value="report" ${u.menus.includes('report') ? 'checked' : ''}> 보고서</label>
-                                            <label><input type="checkbox" class="admin-menu-chk" value="checklist" ${u.menus.includes('checklist') ? 'checked' : ''}> 체크리스트</label>
-                                            <label><input type="checkbox" class="admin-menu-chk" value="monthly" ${u.menus.includes('monthly') ? 'checked' : ''}> 매월</label>
-                                            <label style="background:#FEF2F2; color:#EF4444;"><input type="checkbox" class="admin-menu-chk" value="admin" ${u.menus.includes('admin') ? 'checked' : ''} ${u.id === 'admin' ? 'disabled' : ''}> 설정</label>
-                                        </div></td>
-                                        <td>
-                                            <div style="display:flex; gap:4px;">
-                                                <button class="btn-icon btn-view-user" title="${u.name} 사용자로 접속하여 데이터 보기" style="background:var(--color-primary-light); color:var(--color-primary);">📂</button>
-                                                <button class="btn-icon btn-change-pw" title="비밀번호 변경" style="background:var(--color-bg);">🔑</button>
-                                                <button class="btn-icon btn-del-user" title="유저 삭제" ${u.id === 'admin' ? 'disabled style="opacity:0.2;"' : ''}>🗑️</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-        }
-
-        /* -----------------------------------------
-           통합 이벤트 위임 (클릭 이벤트)
-           ----------------------------------------- */
-        let targetUserIdForPw = null; 
 
         document.body.addEventListener('click', async (e) => {
             const target = e.target;
@@ -1705,20 +1378,13 @@
             if (target.classList.contains('btn-delete') && !target.classList.contains('btn-delete-report')) { 
                 if(confirm('삭제?')) {
                     await deleteDoc(doc(firestoreDB, "tasks", String(target.closest('.task-card').dataset.id)));
-                    document.getElementById('task-edit-modal').classList.add('hidden'); // 삭제 시 모달 닫기
+                    document.getElementById('task-edit-modal').classList.add('hidden'); 
                 }
             }
             
             if (target.classList.contains('tab-btn') && !target.classList.contains('report-tab')) { dashState.tab = target.dataset.tab; initDashboard(document.getElementById('content-area')); }
             if (target.classList.contains('report-tab')) { reportState.tab = target.dataset.tab; initReport(document.getElementById('content-area')); }
             
-            if (target.id === 'btn-save-report') { 
-                const p = document.getElementById('current-report-paper'); 
-                p.querySelectorAll('input, textarea').forEach(i=>i.setAttribute('value',i.value)); p.querySelectorAll('textarea').forEach(i=>i.innerHTML = i.value); 
-                const {title}=generateReportHTML(reportState.tab), uid=getCurrentUserId(), newId=Date.now(); 
-                await setDoc(doc(firestoreDB, "reports", String(newId)), {id:newId, userId: uid, type:reportState.tab, title, html:p.innerHTML}); 
-                alert('저장완료!'); reportState.tab='archive'; initReport(document.getElementById('content-area')); 
-            }
             if (target.classList.contains('btn-add-remark')) { 
                 const rKey=target.closest('.report-remarks-list').dataset.remarkKey, uid=getCurrentUserId(); 
                 const arr = globalReportRemarks[rKey] || [];
@@ -1885,7 +1551,7 @@
             }
         });
 
-        /* 🚨 캘린더 빈칸 더블클릭 이벤트 리스너 (새 업무 즉시 추가용) */
+        /* 🚨 캘린더 더블클릭 이벤트 리스너 */
         document.body.addEventListener('dblclick', (e) => {
             const cell = e.target.closest('.cal-cell');
             if (cell && !e.target.closest('.cal-task-badge')) {
@@ -2254,7 +1920,7 @@
             if(chk){
                 const isMonthly = chk.dataset.isMonthly === 'true';
                 const uid = getCurrentUserId();
-                const l = isMonthly ? globalMonthlyChecklists.find(x=>x.id===Number(chk.dataset.chkId)) : globalChecklists.find(x=>x.id===Number(chk.dataset.chkId));
+                const l = isMonthly ? globalMonthlyChecklists.find(x=>x && x.id===Number(c.dataset.chkId)) : globalChecklists.find(x=>x && x.id===Number(c.dataset.chkId));
                 if(l){
                     if(target.classList.contains('chk-checkbox')){
                         const i=l.items.find(x=>x.id===Number(target.closest('.chk-item-row').dataset.itemId));
