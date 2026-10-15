@@ -19,10 +19,11 @@
             --color-text-main: #1E293B;
             --color-text-sub: #64748B;
             --color-border: #E2E8F0;
-            --status-wait: #94A3B8;
+            --status-wait: #64748B;
             --status-ing: #2563EB;
             --status-hold: #F59E0B;
             --status-done: #10B981;
+            --status-done-cal: #94A3B8;
             --border-radius-sm: 6px;
             --border-radius: 12px;
             --font-family: 'Pretendard', sans-serif;
@@ -56,7 +57,7 @@
         body.dark-mode .admin-table tr:hover td { background: #0F172A !important; }
         body.dark-mode .menu-chk-group label { background: #312E81 !important; }
         body.dark-mode .btn-toggle, body.dark-mode .btn-toggle-chk, body.dark-mode .task-category { background: transparent !important; border-color: #475569 !important; }
-        body.dark-mode .duration-badge { border-color: #475569 !important; color: #94A3B8 !important; }
+        body.dark-mode .duration-badge, body.dark-mode .task-dday-badge { border-color: #475569 !important; background: #0F172A !important; color: #E2E8F0 !important; }
         body.dark-mode .btn-primary { background-color: #4F46E5 !important; }
         body.dark-mode .btn-primary:hover { background-color: #4338CA !important; }
         
@@ -133,7 +134,7 @@
         /* =========================================
            3. 공통 모듈 (대시보드 및 캘린더)
            ========================================= */
-        .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap:1rem; }
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap:1rem; flex-wrap: wrap; }
         .tabs { display: flex; gap: 1rem; border-bottom: 2px solid var(--color-border); margin-bottom: 2rem; }
         .tab-btn { background: none; border: none; padding: 0.5rem 0.5rem 1rem 0.5rem; font-size: 1.05rem; font-weight: 700; color: var(--color-text-sub); cursor: pointer; position: relative; transition: color 0.2s; }
         .tab-btn:hover { color: var(--color-text-main); }
@@ -143,6 +144,7 @@
         .kanban-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem; align-items: start; }
         .kanban-col { background: var(--color-surface); border-radius: var(--border-radius); padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; min-height: 60vh; border: 1px solid var(--color-border); }
         .col-title { font-size: 1.05rem; font-weight: 800; padding-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; color: var(--color-text-main); }
+        .task-list-wrap { display: flex; flex-direction: column; gap: 0.85rem; }
         .task-list.grid-view { display: grid; grid-template-columns: repeat(2, 1fr); align-items: start; gap: 1.5rem; }
         
         .task-card, .chk-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); padding: 1rem; box-shadow: var(--shadow-sm); transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s; cursor: grab; }
@@ -162,30 +164,114 @@
         .memo-dragging { opacity: 0.4; background: var(--color-primary-light) !important; border: 1px dashed var(--color-primary) !important; }
         .card-dragging *, .item-dragging *, .memo-dragging * { pointer-events: none !important; }
 
-        .task-header { display: flex; align-items: flex-start; gap: 0.75rem; width: 100%; flex-wrap: nowrap; }
-        .task-controls { display: flex; align-items: flex-start; gap: 0.5rem; flex-shrink: 0; margin-top: 0.1rem; white-space: nowrap; }
+        .task-header { display: flex; align-items: flex-start; gap: 0.6rem; width: 100%; flex-wrap: nowrap; }
+        .task-controls { display: flex; align-items: flex-start; gap: 0.35rem; flex-shrink: 0; margin-top: 0.1rem; white-space: nowrap; }
         .btn-toggle { flex-shrink: 0; background: transparent; border: 1px solid var(--color-border); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; color: var(--color-text-sub); display: flex; align-items: center; justify-content: center; margin-top: 0.1rem; }
         .task-category { width: 85px !important; min-width: 85px !important; text-align: center; font-weight: 700; font-size: 0.8rem; border-radius: 20px; flex-shrink: 0; margin-top: 0.1rem; }
-        .task-title { flex: 1; min-width: 150px !important; font-weight: 800; font-size: 1.05rem; }
-        .task-body { margin-top: 1rem; padding-left: 2.7rem; display: flex; flex-direction: column; gap: 0.75rem; }
+        .task-title { flex: 1; min-width: 120px !important; font-weight: 800; font-size: 1.02rem; }
+        .task-body { margin-top: 0.75rem; padding-left: 2.2rem; display: flex; flex-direction: column; gap: 0.65rem; }
         .sub-items-list { display: flex; flex-direction: column; gap: 0.25rem; }
         .sub-item-row { display: flex; gap: 0.5rem; align-items: flex-start; width: 100%; }
         .sub-item-text { flex: 1; font-size: 0.9rem; min-width: 100px !important; }
         .btn-add-sub, .btn-add-remark { background: none; border: 1px dashed var(--color-border); color: var(--color-text-sub); border-radius: 4px; padding: 0.4rem; font-size: 0.8rem; cursor: pointer; transition: 0.2s; margin-top: 0.25rem; width: 100%; text-align: left; }
-        .task-footer { display: flex; gap: 1.5rem; align-items: center; font-size: 0.8rem; color: var(--color-text-sub); margin-top: 0.5rem; padding-top: 0.75rem; border-top: 1px dashed var(--color-border); }
-        .task-footer .inline-input { padding: 0.1rem 0.3rem; font-size: 0.85rem; width: 120px; font-weight: 600; }
+        
+        .task-footer { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; justify-content: space-between; font-size: 0.78rem; color: var(--color-text-sub); margin-top: 0.25rem; padding-top: 0.65rem; border-top: 1px dashed var(--color-border); }
+        .task-dates-group { display: flex; flex-wrap: wrap; gap: 0.4rem 0.75rem; align-items: center; }
+        .date-field-item { display: inline-flex; align-items: center; gap: 0.2rem; font-weight: 600; }
+        .date-field-label { font-size: 0.75rem; color: var(--color-text-sub); white-space: nowrap; }
+        .task-footer .inline-input { padding: 0.1rem 0.25rem; font-size: 0.8rem; width: 112px; font-weight: 600; }
+        .task-dday-badge { font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 12px; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text-sub); white-space: nowrap; }
+        .task-dday-badge.urgent { background: #FEF2F2; border-color: #FECACA; color: #EF4444; }
+        .task-dday-badge.ing { background: #EFF6FF; border-color: #BFDBFE; color: #2563EB; }
+        .task-dday-badge.done { background: #F1F5F9; border-color: #CBD5E1; color: #475569; }
 
-        /* 🚨 업무 캘린더 전용 CSS */
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--color-border); border: 1px solid var(--color-border); border-radius: var(--border-radius); overflow: hidden; margin-top: 1rem; }
-        .cal-day-name { background: var(--color-primary-light); text-align: center; padding: 0.75rem 0.5rem; font-weight: 800; color: var(--color-text-main); font-size: 0.95rem; }
-        .cal-cell { background: var(--color-surface); min-height: 130px; padding: 0.5rem; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; transition: background-color 0.2s; cursor: pointer; }
-        .cal-cell:hover { background: var(--color-bg); }
-        .cal-date { font-size: 0.9rem; font-weight: 700; color: var(--color-text-sub); margin-bottom: 6px; text-align: right; padding: 2px; user-select: none; }
-        .cal-date.today { color: white; background: var(--color-primary); border-radius: 50%; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; align-self: flex-end; }
-        .cal-task-badge { font-size: 0.8rem; padding: 0.3rem 0.5rem; border-radius: 4px; color: white; cursor: grab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; transition: transform 0.1s; }
-        .cal-task-badge:hover { filter: brightness(0.9); transform: translateY(-1px); }
+        /* =========================================
+           🚨 업무 캘린더 전용 CSS (연속 탭/바 연결 지원)
+           ========================================= */
+        .cal-legend-bar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; font-size: 0.82rem; font-weight: 600; color: var(--color-text-sub); }
+        .cal-filter-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.7rem; border-radius: 20px; border: 1px solid var(--color-border); background: var(--color-surface); cursor: pointer; font-size: 0.8rem; font-weight: 700; transition: all 0.15s; user-select: none; }
+        .cal-filter-chip:hover { border-color: var(--color-primary); }
+        .cal-filter-chip.active { background: var(--color-primary-light); border-color: var(--color-primary); color: var(--color-primary); }
+        .cal-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--color-border); border: 1px solid var(--color-border); border-radius: var(--border-radius); overflow: hidden; margin-top: 0.75rem; box-shadow: var(--shadow-sm); }
+        .cal-day-name { background: var(--color-primary-light); text-align: center; padding: 0.7rem 0.5rem; font-weight: 800; color: var(--color-text-main); font-size: 0.9rem; }
+        .cal-cell { background: var(--color-surface); min-height: 138px; padding: 0.35rem 0.35rem 0.5rem 0.35rem; display: flex; flex-direction: column; gap: 4px; overflow: visible; transition: background-color 0.15s; cursor: pointer; position: relative; }
+        .cal-cell:hover { background: #F1F5F9; }
+        body.dark-mode .cal-cell:hover { background: #1E293B !important; }
+        .cal-date { font-size: 0.85rem; font-weight: 700; color: var(--color-text-sub); margin-bottom: 2px; text-align: right; padding: 2px 4px; user-select: none; }
+        .cal-date.today { color: white !important; background: var(--color-primary); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; align-self: flex-end; }
+        .cal-cell.other-month { background: var(--color-bg); }
+        .cal-cell.other-month .cal-date { opacity: 0.45; }
+
+        .cal-tasks-container { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+        .cal-task-spacer { height: 24px; pointer-events: none; visibility: hidden; flex-shrink: 0; }
+        
+        .cal-task-badge { 
+            height: 24px;
+            line-height: 24px;
+            font-size: 0.76rem; 
+            padding: 0 0.45rem; 
+            border-radius: 5px; 
+            color: white !important; 
+            cursor: grab; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            font-weight: 600; 
+            transition: filter 0.12s, transform 0.12s, box-shadow 0.12s; 
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 4px;
+            user-select: none;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+        }
+        .cal-task-badge:hover, .cal-task-badge.cal-badge-hover { 
+            filter: brightness(0.92); 
+            z-index: 5;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+        }
         .cal-task-badge:active { cursor: grabbing; }
-        .cal-cell.other-month { background: var(--color-bg); opacity: 0.5; }
+
+        /* 🚨 다중 일자 연결(연속 바) 스타일 */
+        .cal-task-badge.span-single { border-radius: 5px; }
+        .cal-task-badge.span-start { 
+            border-radius: 5px 0 0 5px; 
+            margin-right: -0.42rem; 
+            padding-right: 0.5rem;
+            z-index: 3;
+        }
+        .cal-task-badge.span-mid { 
+            border-radius: 0; 
+            margin-left: -0.42rem; 
+            margin-right: -0.42rem; 
+            padding-left: 0.45rem;
+            padding-right: 0.45rem;
+            box-shadow: none;
+            border-left: 1px solid rgba(255,255,255,0.18);
+        }
+        .cal-task-badge.span-end { 
+            border-radius: 0 5px 5px 0; 
+            margin-left: -0.42rem; 
+            padding-left: 0.45rem;
+            border-left: 1px solid rgba(255,255,255,0.18);
+        }
+        .cal-task-badge .badge-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .cal-task-badge.span-mid .badge-title-text,
+        .cal-task-badge.span-end .badge-title-text { opacity: 0.92; font-size: 0.73rem; }
+        .cal-task-badge .badge-period-tag { font-size: 0.66rem; opacity: 0.85; font-weight: 500; flex-shrink: 0; background: rgba(0,0,0,0.15); padding: 0 4px; border-radius: 3px; height: 16px; line-height: 16px; }
+        
+        /* 완료된 업무 탭 스타일 (회색 연결 유지) */
+        .cal-task-badge.status-done-badge {
+            background-color: var(--status-done-cal) !important;
+            opacity: 0.88;
+        }
+        .cal-task-badge.status-done-badge .badge-title-text {
+            text-decoration: line-through;
+        }
         
         #task-edit-modal .modal-content { 
             max-width: 650px; 
@@ -253,14 +339,9 @@
         }
         .pdf-export-mode .report-task { display: block !important; page-break-inside: avoid !important; break-inside: avoid !important; padding: 1.5rem 0.5rem; border-bottom: 1px solid #E2E8F0; }
         .pdf-export-mode .group-category { page-break-inside: avoid !important; break-inside: avoid !important; }
-        
-        /* 🚨 날짜 2줄 바꿈 해결: 날짜 영역 너비를 35%로 늘리고, 줄바꿈(nowrap) 강제 금지 */
         .pdf-export-mode .report-task-content { float: left !important; width: 65% !important; }
         .pdf-export-mode .report-task-date { float: right !important; width: 35% !important; text-align: right !important; white-space: nowrap !important; }
-        
-        /* 🚨 26.08 월 띄어쓰기 오류 해결: PDF 변환 시 단어 끊기 기준을 조정하여 숫자+한글 분리 현상 방지 */
         .pdf-export-mode .report-task-title { word-break: break-all !important; display: block !important; }
-        
         .pdf-export-mode .report-task::after { content: ""; display: table; clear: both; }
         .pdf-export-mode .group-status-title { display: inline-block !important; }
 
@@ -330,17 +411,30 @@
         </div>
     </div>
 
-    <!-- 🚨 완료 시 완료일 지정 모달 -->
+    <!-- 🚨 완료 시 완료일 지정 모달 (예정일 연동 및 빠른 변경 지원) -->
     <div id="task-complete-modal" class="modal-overlay hidden" style="z-index: 1100;">
         <div class="modal-content">
-            <h2 style="margin-bottom: 1.5rem; font-weight: 800; color: var(--color-primary);">✅ 업무 완료 처리</h2>
-            <div class="form-group">
-                <label>실제 완료일을 지정해주세요</label>
-                <input type="date" id="complete-task-date" class="input-text">
+            <h2 style="margin-bottom: 0.5rem; font-weight: 800; color: var(--color-primary);">✅ 업무 완료 처리</h2>
+            <p id="complete-modal-desc" style="font-size: 0.85rem; color: var(--color-text-sub); margin-bottom: 1.25rem;">
+                기존 완료 예정일이 자동 입력되었습니다. 실제 완료일이 다르다면 변경해주세요.
+            </p>
+            <div class="form-group" style="display:flex; gap: 0.75rem;">
+                <div style="flex:1;">
+                    <label>시작일</label>
+                    <input type="date" id="complete-task-start-date" class="input-text">
+                </div>
+                <div style="flex:1;">
+                    <label>실제 완료일 <span style="color:#EF4444;">*</span></label>
+                    <input type="date" id="complete-task-date" class="input-text">
+                </div>
+            </div>
+            <div style="display:flex; gap: 0.5rem; margin-top: -0.5rem; margin-bottom: 1rem;">
+                <button type="button" class="btn btn-outline" id="btn-complete-use-planned" style="flex:1; font-size:0.78rem; padding:0.4rem;">🎯 예정일 그대로 사용</button>
+                <button type="button" class="btn btn-outline" id="btn-complete-use-today" style="flex:1; font-size:0.78rem; padding:0.4rem;">📅 오늘 날짜로 설정</button>
             </div>
             <div class="modal-footer right">
                 <button class="btn btn-outline" id="btn-cancel-complete">취소</button>
-                <button class="btn btn-primary" id="btn-confirm-complete">완료 처리</button>
+                <button class="btn btn-primary" id="btn-confirm-complete">완료 확정</button>
             </div>
         </div>
     </div>
@@ -353,22 +447,23 @@
         </div>
     </div>
 
-    <!-- 🚨 새 업무 추가 모달 (하위 항목 추가 UI 신설) -->
+    <!-- 🚨 새 업무 추가 모달 (시작일 ~ 완료예정일 안내 강화) -->
     <div id="task-add-modal" class="modal-overlay hidden" style="z-index: 1200;">
         <div class="modal-content" style="max-height: 85vh; overflow-y: auto;">
             <h2 style="margin-bottom: 1.5rem; font-weight: 800; color: var(--color-text-main);">+ 새 업무 추가</h2>
             <div class="form-group"><label>분류</label><textarea id="new-task-category" rows="1" class="input-text" placeholder="예: 기본업무" spellcheck="false"></textarea></div>
-            <div class="form-group"><label>업무 제목 <span style="color:var(--color-danger)">*</span></label><textarea id="new-task-title" rows="2" class="input-text" placeholder="업무 제목을 입력하세요" spellcheck="false"></textarea></div>
+            <div class="form-group"><label>업무 제목 <span style="color:#EF4444">*</span></label><textarea id="new-task-title" rows="2" class="input-text" placeholder="업무 제목을 입력하세요" spellcheck="false"></textarea></div>
             <div class="form-group">
                 <label>진행 상태</label>
-                <select id="new-task-status" class="input-text"><option value="대기">대기</option><option value="진행중">진행중</option><option value="보류">보류</option><option value="완료">완료</option></select>
+                <select id="new-task-status" class="input-text"><option value="대기">대기</option><option value="진행중" selected>진행중</option><option value="보류">보류</option><option value="완료">완료</option></select>
             </div>
             <div class="form-group" style="display:flex; gap: 1rem;">
-                <div style="flex:1;"><label>시작일</label><input type="date" id="new-task-start" class="input-text"></div>
-                <div style="flex:1;"><label>완료일</label><input type="date" id="new-task-end" class="input-text"></div>
+                <div style="flex:1;"><label>📅 시작일</label><input type="date" id="new-task-start" class="input-text"></div>
+                <div style="flex:1;"><label>🎯 완료예정일 (종료일)</label><input type="date" id="new-task-end" class="input-text"></div>
             </div>
+            <p style="font-size:0.78rem; color:var(--color-text-sub); margin-top:-0.75rem; margin-bottom:1rem;">💡 시작일과 완료예정일을 모두 지정하면 캘린더에 해당 기간만큼 탭이 길게 연결되어 표시됩니다.</p>
             
-            <div class="form-group" style="margin-top: 1.5rem;">
+            <div class="form-group" style="margin-top: 1rem;">
                 <label>하위 항목 (선택)</label>
                 <div id="new-task-subitems-container" style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom: 0.5rem;"></div>
                 <button class="btn btn-outline" id="btn-add-new-task-subitem" style="width:100%; font-size:0.85rem; padding:0.5rem; border-style:dashed; color:var(--color-primary); border-color:var(--color-primary-light);">+ 하위 항목 추가</button>
@@ -459,7 +554,8 @@
         </aside>
         <main id="main-content"><div id="content-area"></div></main>
     </div>
-<script type="module">
+
+    <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
@@ -548,23 +644,23 @@
                     let needsAppDBSave = false;
 
                     if (globalDB.tasks && globalDB.tasks.length > 0) {
-                        for (let i=0; i<globalDB.tasks.length; i++) { const t = globalDB.tasks[i]; t.order = i; await setDoc(doc(firestoreDB, "tasks", String(t.id)), t); }
+                        for (let i=0; i<globalDB.tasks.length; i++) { const t = globalDB.tasks[i]; if(t){ t.order = i; await setDoc(doc(firestoreDB, "tasks", String(t.id)), t); } }
                         globalDB.tasks = []; needsAppDBSave = true;
                     }
                     if (globalDB.checklists && globalDB.checklists.length > 0) {
-                        for (let i=0; i<globalDB.checklists.length; i++) { const c = globalDB.checklists[i]; c.order = i; await setDoc(doc(firestoreDB, "checklists", String(c.id)), c); }
+                        for (let i=0; i<globalDB.checklists.length; i++) { const c = globalDB.checklists[i]; if(c){ c.order = i; await setDoc(doc(firestoreDB, "checklists", String(c.id)), c); } }
                         globalDB.checklists = []; needsAppDBSave = true;
                     }
                     if (globalDB.monthlyChecklists && globalDB.monthlyChecklists.length > 0) {
-                        for (let i=0; i<globalDB.monthlyChecklists.length; i++) { const c = globalDB.monthlyChecklists[i]; c.order = i; await setDoc(doc(firestoreDB, "monthlyChecklists", String(c.id)), c); }
+                        for (let i=0; i<globalDB.monthlyChecklists.length; i++) { const c = globalDB.monthlyChecklists[i]; if(c){ c.order = i; await setDoc(doc(firestoreDB, "monthlyChecklists", String(c.id)), c); } }
                         globalDB.monthlyChecklists = []; needsAppDBSave = true;
                     }
                     if (globalDB.reports && globalDB.reports.length > 0) {
-                        for (let r of globalDB.reports) { await setDoc(doc(firestoreDB, "reports", String(r.id)), r); }
+                        for (let r of globalDB.reports) { if(r) await setDoc(doc(firestoreDB, "reports", String(r.id)), r); }
                         globalDB.reports = []; needsAppDBSave = true;
                     }
                     if (globalDB.reportRemarks && Object.keys(globalDB.reportRemarks).length > 0) {
-                        for (let [key, arr] of Object.entries(globalDB.reportRemarks)) { await setDoc(doc(firestoreDB, "reportRemarks", key), { remarks: arr }); }
+                        for (let [key, arr] of Object.entries(globalDB.reportRemarks)) { if(arr) await setDoc(doc(firestoreDB, "reportRemarks", key), { remarks: arr }); }
                         globalDB.reportRemarks = {}; needsAppDBSave = true;
                     }
                     
@@ -576,6 +672,7 @@
                     if (!globalDB.groups) { globalDB.groups = defaultDB.groups; needsAppDBSave = true; }
                     
                     globalDB.users.forEach(u => {
+                        if (!u) return;
                         if (!u.menus) { u.menus = ['dashboard', 'calendar', 'report', 'checklist', 'monthly']; needsAppDBSave = true; }
                         if (!u.menus.includes('calendar')) { u.menus.splice(1, 0, 'calendar'); needsAppDBSave = true; }
                         if (!u.menus.includes('monthly')) { u.menus.push('monthly'); needsAppDBSave = true; }
@@ -717,9 +814,27 @@
         function getTodayString() { return toLocalISOString(new Date()); }
         function formatShortDate(dateStr) { if (!dateStr) return '미정'; const d = new Date(dateStr); return `${String(d.getFullYear()).slice(2)}년 ${d.getMonth()+1}월 ${d.getDate()}일`; }
         function getDaysDiff(startStr, endStr) { if (!startStr || !endStr) return 0; return Math.floor((new Date(endStr) - new Date(startStr)) / (1000 * 60 * 60 * 24)) + 1; }
+        function addDaysToDateStr(dateStr, days) {
+            if (!dateStr) return '';
+            const [y, m, d] = dateStr.split('-').map(Number);
+            const dt = new Date(y, m - 1, d + days);
+            return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+        }
         function getWeekInfo(dateStr) { const date = dateStr ? new Date(dateStr) : new Date(); const year = date.getFullYear(), month = date.getMonth() + 1, firstDay = new Date(year, month - 1, 1).getDay(); return { year, month, week: Math.ceil((date.getDate() + firstDay) / 7) }; }
         function getCurrentMondayStr() { const today = new Date(), day = today.getDay(), diff = today.getDate() - day + (day === 0 ? -6 : 1); return toLocalISOString(new Date(today.setDate(diff))); }
         function getCurrentMonthStr() { const today = new Date(); return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`; }
+        function getNextMonthStr(monthStr) {
+            if(!monthStr) return getCurrentMonthStr();
+            const [y, m] = monthStr.split('-').map(Number);
+            const date = new Date(y, m, 1);
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+        function getPrevMonthStr(monthStr) {
+            if(!monthStr) return getCurrentMonthStr();
+            const [y, m] = monthStr.split('-').map(Number);
+            const date = new Date(y, m - 2, 1);
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
         function showToast(msg) { const container = document.getElementById('toast-container'); const toast = document.createElement('div'); toast.className = 'toast'; toast.innerHTML = `🎉 <span>${msg}</span>`; container.appendChild(toast); setTimeout(() => toast.remove(), 3500); }
 
         document.addEventListener('keydown', (e) => {
@@ -741,6 +856,72 @@
             const [y1, mo1] = m1.split('-').map(Number);
             const [y2, mo2] = m2.split('-').map(Number);
             return (y2 - y1) * 12 + (mo2 - mo1);
+        }
+
+        async function ensureMonthInitialized(db, uid, targetMonth) {
+            try {
+                if(!db) return;
+                const initKey = `${uid}_${targetMonth}`;
+                if (db.monthlyChecklistInit && db.monthlyChecklistInit[initKey]) return;
+
+                let initMap = db.monthlyChecklistInit || {};
+                const initKeys = Object.keys(initMap)
+                                       .filter(k => k.startsWith(`${uid}_`))
+                                       .map(k => k.replace(`${uid}_`, ''))
+                                       .sort();
+                
+                let lastInitMonth = null;
+                for (let i = initKeys.length - 1; i >= 0; i--) {
+                    if (initKeys[i] < targetMonth) {
+                        lastInitMonth = initKeys[i];
+                        break;
+                    }
+                }
+
+                if (!lastInitMonth) {
+                    initMap[initKey] = true;
+                    db.monthlyChecklistInit = initMap;
+                    await updateDoc(doc(firestoreDB, "WorkSystem", DB_KEY), { monthlyChecklistInit: initMap });
+                    return;
+                }
+
+                let curr = lastInitMonth;
+                while (curr < targetMonth) {
+                    const nextMonth = getNextMonthStr(curr);
+                    const prevRecords = (globalMonthlyChecklists || []).filter(c => c && c.userId === uid && c.month === curr);
+                    
+                    if (prevRecords.length > 0) {
+                        for (let group of prevRecords) {
+                            let newItems = [];
+                            (group.items||[]).forEach(item => {
+                                if (!item) return;
+                                if (item.status === '당월') return; 
+                                let newItem = { ...item, id: Date.now() + Math.random(), syncItemId: item.syncItemId || item.id, isChecked: false };
+                                if (item.status === '이월') newItem.status = '당월';
+                                newItem.memos = Array.isArray(item.memos) ? [...item.memos] : []; 
+                                newItems.push(newItem);
+                            });
+                            
+                            const newGroup = {
+                                ...group,
+                                id: Date.now() + Math.random(),
+                                syncGroupId: group.syncGroupId || group.id, 
+                                month: nextMonth,
+                                items: newItems,
+                                order: group.order || -Date.now()
+                            };
+                            await setDoc(doc(firestoreDB, "monthlyChecklists", String(newGroup.id)), newGroup);
+                        }
+                    }
+                    
+                    initMap[`${uid}_${nextMonth}`] = true;
+                    curr = nextMonth;
+                }
+                db.monthlyChecklistInit = initMap;
+                await updateDoc(doc(firestoreDB, "WorkSystem", DB_KEY), { monthlyChecklistInit: initMap });
+            } catch (e) {
+                console.error("Month Initialization Error:", e);
+            }
         }
 
         function getInitializedFutureMonths(db, uid, currentMonth) {
@@ -876,7 +1057,7 @@
                 margin: [15, 10, 15, 10], 
                 filename: '업무보고서.pdf', 
                 image: { type: 'jpeg', quality: 1.0 }, 
-                html2canvas: { scale: 2, useCORS: true }, // 🚨 letterRendering: true 옵션 완전 제거 (한글 파괴 주범)
+                html2canvas: { scale: 2, useCORS: true }, 
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
                 pagebreak: { mode: ['css', 'legacy'] } 
             };
@@ -952,7 +1133,7 @@
         }
 
         /* =========================================
-           3. 대시보드 로직
+           3. 대시보드 로직 (기간/예정일/완료일 표시 고도화)
            ========================================= */
         let dashState = { tab: 'active', search: '' };
         function initDashboard(container) {
@@ -963,37 +1144,93 @@
         }
         function getStatusColor(status) { if(status === '대기') return 'var(--status-wait)'; if(status === '진행중') return 'var(--status-ing)'; if(status === '보류') return 'var(--status-hold)'; return 'var(--status-done)'; }
         
+        function getTaskDurationBadgeHTML(t) {
+            const isDone = t.status === '완료';
+            const today = getTodayString();
+            const s = t.startDate;
+            const e = t.endDate;
+
+            if (isDone) {
+                if (s && e) {
+                    const days = getDaysDiff(s <= e ? s : e, s <= e ? e : s);
+                    return `<span class="task-dday-badge done">${days}일 소요</span>`;
+                }
+                return `<span class="task-dday-badge done">완료됨</span>`;
+            } else {
+                if (s && e) {
+                    const totalDays = getDaysDiff(s <= e ? s : e, s <= e ? e : s);
+                    const remain = Math.floor((new Date(e) - new Date(today)) / (1000 * 60 * 60 * 24));
+                    if (remain < 0) return `<span class="task-dday-badge urgent">${totalDays}일간 · ${Math.abs(remain)}일 경과</span>`;
+                    if (remain === 0) return `<span class="task-dday-badge urgent">${totalDays}일간 · 오늘 마감</span>`;
+                    return `<span class="task-dday-badge ing">${totalDays}일간 · D-${remain}</span>`;
+                } else if (e) {
+                    const remain = Math.floor((new Date(e) - new Date(today)) / (1000 * 60 * 60 * 24));
+                    if (remain < 0) return `<span class="task-dday-badge urgent">${Math.abs(remain)}일 경과</span>`;
+                    if (remain === 0) return `<span class="task-dday-badge urgent">오늘 마감</span>`;
+                    return `<span class="task-dday-badge ing">D-${remain}</span>`;
+                } else if (s) {
+                    return `<span class="task-dday-badge">진행일정</span>`;
+                }
+                return '';
+            }
+        }
+
+        function openCompleteModalForTask(t) {
+            const today = getTodayString();
+            const plannedDate = t.endDate || today;
+            const startDate = t.startDate || plannedDate;
+            const modal = document.getElementById('task-complete-modal');
+            modal.dataset.taskId = t.id;
+            modal.dataset.plannedDate = plannedDate;
+            document.getElementById('complete-task-start-date').value = startDate;
+            document.getElementById('complete-task-date').value = plannedDate;
+            
+            const descEl = document.getElementById('complete-modal-desc');
+            if (t.endDate) {
+                descEl.innerHTML = `설정한 완료예정일(<b>${formatShortDate(t.endDate)}</b>)이 완료일로 자동 반영되었습니다.<br>실제 완료일이 다르다면 아래에서 수정해주세요.`;
+            } else {
+                descEl.innerHTML = `완료예정일이 없어 오늘 날짜(<b>${formatShortDate(today)}</b>)가 기본 입력되었습니다.<br>실제 완료일을 확인해주세요.`;
+            }
+            modal.classList.remove('hidden');
+        }
+
         function createCardHTML(t) {
-            if (!t.subItems) t.subItems = []; const isDone = t.status === '완료';
-            const showFooterAlways = (t.status === '진행중' || t.status === '완료');
-            const hideBody = (!t.isOpen && !showFooterAlways) ? 'hidden' : '';
+            if (!t.subItems) t.subItems = [];
+            const isDone = t.status === '완료';
             const hideSub = !t.isOpen ? 'hidden' : '';
-            const hideFooter = (!t.isOpen && !showFooterAlways) ? 'hidden' : '';
+            const endLabel = isDone ? '🏁 완료일' : '🎯 예정일';
+            const ddayBadge = getTaskDurationBadgeHTML(t);
 
             return `<div class="task-card" draggable="true" data-id="${t.id}">
-                    <div class="task-header"><button class="btn-toggle">${t.isOpen ? '▼' : '▶'}</button><textarea spellcheck="false" rows="1" class="inline-input task-category" placeholder="분류">${t.category}</textarea><textarea spellcheck="false" rows="1" class="inline-input task-title" placeholder="제목">${t.title}</textarea>
-                    <div class="task-controls"><select class="inline-select task-status" style="color: ${getStatusColor(t.status)};">${['대기','진행중','보류','완료'].map(s => `<option ${t.status===s?'selected':''}>${s}</option>`).join('')}</select><button class="btn-icon btn-delete">🗑️</button></div></div>
-                    <div class="task-body ${hideBody}">
-                        <div class="sub-items-wrap ${hideSub}" style="display:flex; flex-direction:column; gap:0.75rem;">
+                    <div class="task-header"><button class="btn-toggle" title="하위 항목 접기/펼치기">${t.isOpen ? '▼' : '▶'}</button><textarea spellcheck="false" rows="1" class="inline-input task-category" placeholder="분류">${t.category || ''}</textarea><textarea spellcheck="false" rows="1" class="inline-input task-title" placeholder="제목">${t.title || ''}</textarea>
+                    <div class="task-controls"><select class="inline-select task-status" style="color: ${getStatusColor(t.status)}; font-weight:700;">${['대기','진행중','보류','완료'].map(s => `<option ${t.status===s?'selected':''}>${s}</option>`).join('')}</select><button class="btn-icon btn-delete" title="업무 삭제">🗑️</button></div></div>
+                    <div class="task-body">
+                        <div class="sub-items-wrap ${hideSub}" style="display:flex; flex-direction:column; gap:0.5rem;">
                             <div class="sub-items-list">${t.subItems.map(s => `
                                 <div class="sub-item-row" data-sub-id="${s.id}" draggable="true" style="width:100%;">
                                     <span class="drag-handle sub-drag-handle" title="드래그하여 순서 변경">⋮⋮</span>
-                                    <textarea spellcheck="false" rows="1" class="inline-input sub-item-text" placeholder="항목 입력">${s.text}</textarea>
+                                    <textarea spellcheck="false" rows="1" class="inline-input sub-item-text" placeholder="항목 입력">${s.text || ''}</textarea>
                                     <button class="btn-icon btn-del-sub">✕</button>
                                 </div>`).join('')}
                             </div>
                             <button class="btn-add-sub" style="margin-left: 1.2rem;">+ 항목 추가</button>
                         </div>
-                        <div class="task-footer ${hideFooter}">
-                            <span title="시작일">📅 <input type="date" class="inline-input task-start" value="${t.startDate}"></span>
-                            <span title="${isDone ? '완료일' : '목표/완료일'}">🏁 <input type="date" class="inline-input task-end" value="${t.endDate || ''}"></span>
+                        <div class="task-footer">
+                            <div class="task-dates-group">
+                                <span class="date-field-item" title="업무 시작일"><span class="date-field-label">📅 시작일</span><input type="date" class="inline-input task-start" value="${t.startDate || ''}"></span>
+                                <span style="color:var(--color-border);">~</span>
+                                <span class="date-field-item" title="${isDone ? '실제 완료일' : '완료 예정일'}"><span class="date-field-label">${endLabel}</span><input type="date" class="inline-input task-end" value="${t.endDate || ''}"></span>
+                            </div>
+                            ${ddayBadge}
                         </div>
                     </div></div>`;
         }
+
         function renderDashList() {
             const container = document.getElementById('task-list-container'); if(!container) return;
             const uid = getCurrentUserId();
-            const filtered = globalTasks.filter(t => t.userId === uid && (t.title.toLowerCase().includes(dashState.search.toLowerCase()) || t.category.toLowerCase().includes(dashState.search.toLowerCase())));
+            const searchLower = (dashState.search || '').toLowerCase();
+            const filtered = globalTasks.filter(t => t && t.userId === uid && ((t.title || '').toLowerCase().includes(searchLower) || (t.category || '').toLowerCase().includes(searchLower)));
             
             if (dashState.tab === 'active') {
                 const p = filtered.filter(t => t.status === '대기'), i = filtered.filter(t => t.status === '진행중'), h = filtered.filter(t => t.status === '보류');
@@ -1030,18 +1267,36 @@
         }
 
         /* =========================================
-           🚨 캘린더 로직
+           🚨 캘린더 로직 (다중 일자 연속 탭 & 트랙 정렬 엔진)
            ========================================= */
-        let calState = { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
+        let calState = { year: new Date().getFullYear(), month: new Date().getMonth() + 1, filter: 'all' };
+        
+        function getTaskSpanRange(t) {
+            if (!t) return null;
+            let s = t.startDate || '';
+            let e = t.endDate || '';
+            if (!s && !e) return null;
+            if (s && !e) e = s;
+            if (!s && e) s = e;
+            if (s > e) { const tmp = s; s = e; e = tmp; }
+            return { start: s, end: e };
+        }
+
         function initCalendar(container) {
             container.innerHTML = `
                 <div class="dashboard-header">
-                    <div style="display:flex; align-items:center; gap:1rem;">
+                    <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
                         <h2 style="font-size:1.5rem; font-weight:800; color:var(--color-text-main);">📆 업무 캘린더</h2>
                         <div style="display:flex; align-items:center; gap:0.5rem;">
                             <button class="btn-icon btn-cal-prev" style="background:var(--color-primary-light); color:var(--color-primary);">◀</button>
-                            <span id="cal-month-display" style="font-size:1.2rem; font-weight:800; min-width:100px; text-align:center; color:var(--color-text-main);">${calState.year}년 ${calState.month}월</span>
+                            <span id="cal-month-display" style="font-size:1.2rem; font-weight:800; min-width:105px; text-align:center; color:var(--color-text-main);">${calState.year}년 ${calState.month}월</span>
                             <button class="btn-icon btn-cal-next" style="background:var(--color-primary-light); color:var(--color-primary);">▶</button>
+                        </div>
+                        <div class="cal-legend-bar" style="margin-left:0.5rem;">
+                            <span class="cal-filter-chip ${calState.filter === 'all' ? 'active' : ''}" data-cal-filter="all">전체 보기</span>
+                            <span class="cal-filter-chip ${calState.filter === '진행중' ? 'active' : ''}" data-cal-filter="진행중"><i class="cal-dot" style="background:var(--status-ing);"></i>진행중</span>
+                            <span class="cal-filter-chip ${calState.filter === '대기보류' ? 'active' : ''}" data-cal-filter="대기보류"><i class="cal-dot" style="background:var(--status-hold);"></i>대기/보류</span>
+                            <span class="cal-filter-chip ${calState.filter === '완료' ? 'active' : ''}" data-cal-filter="완료"><i class="cal-dot" style="background:var(--status-done-cal);"></i>완료</span>
                         </div>
                     </div>
                     <div>
@@ -1060,6 +1315,10 @@
             const monthDisplay = document.getElementById('cal-month-display');
             if(monthDisplay) monthDisplay.textContent = `${calState.year}년 ${calState.month}월`;
             
+            document.querySelectorAll('.cal-filter-chip').forEach(chip => {
+                chip.classList.toggle('active', chip.dataset.calFilter === calState.filter);
+            });
+
             const uid = getCurrentUserId();
             const firstDay = new Date(calState.year, calState.month - 1, 1).getDay();
             const lastDate = new Date(calState.year, calState.month, 0).getDate();
@@ -1068,77 +1327,201 @@
             const today = new Date();
             const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 
-            let html = '<div class="calendar-grid">';
-            const days = ['일','월','화','수','목','금','토'];
-            days.forEach(d => html += `<div class="cal-day-name" style="${d==='일'?'color:#EF4444;':d==='토'?'color:#3B82F6;':''}">${d}</div>`);
-            
+            // 1. 42개 날짜 셀 메타데이터 구성
+            const cells = [];
             let dateNum = 1;
             let nextMonthDate = 1;
 
-            const myTasks = globalTasks.filter(t => t.userId === uid);
-
-            for (let i = 0; i < 42; i++) { 
+            for (let i = 0; i < 42; i++) {
                 let cellDateStr = '';
-                let cellClass = 'cal-cell';
-                let dayDisplay = '';
-                
+                let isOtherMonth = false;
+                let dayNumber = 0;
+
                 if (i < firstDay) {
-                    cellClass += ' other-month';
-                    let d = prevLastDate - firstDay + i + 1;
-                    dayDisplay = d;
+                    isOtherMonth = true;
+                    dayNumber = prevLastDate - firstDay + i + 1;
                     let pm = calState.month - 1; let py = calState.year;
                     if (pm < 1) { pm = 12; py--; }
-                    cellDateStr = `${py}-${String(pm).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                    cellDateStr = `${py}-${String(pm).padStart(2,'0')}-${String(dayNumber).padStart(2,'0')}`;
                 } else if (dateNum > lastDate) {
-                    cellClass += ' other-month';
-                    dayDisplay = nextMonthDate;
+                    isOtherMonth = true;
+                    dayNumber = nextMonthDate;
                     let nm = calState.month + 1; let ny = calState.year;
                     if (nm > 12) { nm = 1; ny++; }
-                    cellDateStr = `${ny}-${String(nm).padStart(2,'0')}-${String(nextMonthDate).padStart(2,'0')}`;
+                    cellDateStr = `${ny}-${String(nm).padStart(2,'0')}-${String(dayNumber).padStart(2,'0')}`;
                     nextMonthDate++;
                 } else {
-                    cellDateStr = `${calState.year}-${String(calState.month).padStart(2,'0')}-${String(dateNum).padStart(2,'0')}`;
-                    let isToday = (cellDateStr === todayStr);
-                    dayDisplay = `<div style="display:flex; justify-content:flex-end;"><span class="cal-date ${isToday?'today':''}">${dateNum}</span></div>`;
+                    dayNumber = dateNum;
+                    cellDateStr = `${calState.year}-${String(calState.month).padStart(2,'0')}-${String(dayNumber).padStart(2,'0')}`;
                     dateNum++;
                 }
 
-                let tasksHtml = '';
-                if (cellDateStr) {
-                    const dayTasks = myTasks.filter(t => {
-                        if (!t.startDate && t.status !== '완료') return false; 
-                        
-                        if (t.status === '완료') {
-                            return t.endDate === cellDateStr;
-                        } else {
-                            return t.startDate === cellDateStr;
-                        }
-                    });
-
-                    dayTasks.sort((a, b) => (a.order || 0) - (b.order || 0));
-
-                    dayTasks.sort((a, b) => {
-                        if (a.status === '완료' && b.status !== '완료') return 1;
-                        if (a.status !== '완료' && b.status === '완료') return -1;
-                        return 0;
-                    });
-
-                    tasksHtml = dayTasks.map(t => {
-                        let color = t.status === '완료' ? '#94A3B8' : (t.status === '진행중' ? 'var(--status-ing)' : (t.status === '보류' ? 'var(--status-hold)' : 'var(--status-wait)'));
-                        let extraStyle = t.status === '완료' ? 'opacity: 0.8;' : '';
-                        return `<div class="cal-task-badge" draggable="true" data-task-id="${t.id}" style="background-color:${color}; ${extraStyle}" title="${t.title}">${t.title}</div>`;
-                    }).join('');
-                }
-
-                if(i < firstDay || (i >= firstDay && dayDisplay.toString().indexOf('<div') === -1)) {
-                    dayDisplay = `<div style="display:flex; justify-content:flex-end;"><span class="cal-date">${dayDisplay}</span></div>`;
-                }
-
-                html += `<div class="${cellClass}" data-date="${cellDateStr}">${dayDisplay}${tasksHtml}</div>`;
+                cells.push({
+                    index: i,
+                    dateStr: cellDateStr,
+                    dayNumber: dayNumber,
+                    isOtherMonth: isOtherMonth,
+                    isToday: cellDateStr === todayStr
+                });
             }
+
+            // 2. 사용자 업무 필터링 및 기간 계산
+            const myTasks = globalTasks.filter(t => {
+                if (!t || t.userId !== uid) return false;
+                if (calState.filter === '진행중' && t.status !== '진행중') return false;
+                if (calState.filter === '대기보류' && t.status !== '대기' && t.status !== '보류') return false;
+                if (calState.filter === '완료' && t.status !== '완료') return false;
+                return getTaskSpanRange(t) !== null;
+            });
+
+            // 3. 주간(Week, 7일 단위) 트랙(Slot) 배정으로 다중 일자 탭이 일직선으로 연결되도록 구성
+            let html = '<div class="calendar-grid">';
+            const days = ['일','월','화','수','목','금','토'];
+            days.forEach(d => html += `<div class="cal-day-name" style="${d==='일'?'color:#EF4444;':d==='토'?'color:#3B82F6;':''}">${d}</div>`);
+
+            for (let w = 0; w < 6; w++) {
+                const weekCells = cells.slice(w * 7, w * 7 + 7);
+                const weekStartStr = weekCells[0].dateStr;
+                const weekEndStr = weekCells[6].dateStr;
+
+                // 이번 주와 겹치는 업무 추출
+                const weekTasks = [];
+                myTasks.forEach(t => {
+                    const range = getTaskSpanRange(t);
+                    if (!range) return;
+                    if (range.start <= weekEndStr && range.end >= weekStartStr) {
+                        const startCol = weekCells.findIndex(c => c.dateStr >= range.start);
+                        let endCol = 6;
+                        for (let cIdx = 6; cIdx >= 0; cIdx--) {
+                            if (weekCells[cIdx].dateStr <= range.end) { endCol = cIdx; break; }
+                        }
+                        if (startCol !== -1 && startCol <= endCol) {
+                            weekTasks.push({
+                                task: t,
+                                range: range,
+                                startCol: startCol,
+                                endCol: endCol,
+                                spanLen: endCol - startCol + 1,
+                                totalDays: getDaysDiff(range.start, range.end)
+                            });
+                        }
+                    }
+                });
+
+                // 정렬: 미완료 우선 -> 시작일이 빠른 순 -> 기간이 긴 순 -> 사용자 정렬(order) 순
+                weekTasks.sort((a, b) => {
+                    const aDone = a.task.status === '완료' ? 1 : 0;
+                    const bDone = b.task.status === '완료' ? 1 : 0;
+                    if (aDone !== bDone) return aDone - bDone;
+                    if (a.range.start !== b.range.start) return a.range.start.localeCompare(b.range.start);
+                    if (b.totalDays !== a.totalDays) return b.totalDays - a.totalDays;
+                    return (a.task.order || 0) - (b.task.order || 0);
+                });
+
+                // 트랙(행) 배정
+                const tracks = []; // tracks[trackIdx][col 0..6]
+                weekTasks.forEach(wt => {
+                    let placedTrack = -1;
+                    for (let tIdx = 0; tIdx < tracks.length; tIdx++) {
+                        let available = true;
+                        for (let c = wt.startCol; c <= wt.endCol; c++) {
+                            if (tracks[tIdx][c] !== null) { available = false; break; }
+                        }
+                        if (available) { placedTrack = tIdx; break; }
+                    }
+                    if (placedTrack === -1) {
+                        placedTrack = tracks.length;
+                        tracks.push([null, null, null, null, null, null, null]);
+                    }
+                    for (let c = wt.startCol; c <= wt.endCol; c++) {
+                        tracks[placedTrack][c] = wt;
+                    }
+                });
+
+                // 이번 주 7개 날짜 셀 렌더링
+                for (let col = 0; col < 7; col++) {
+                    const cell = weekCells[col];
+                    const cellClass = `cal-cell${cell.isOtherMonth ? ' other-month' : ''}`;
+                    const dayDisplay = `<div style="display:flex; justify-content:flex-end;"><span class="cal-date ${cell.isToday ? 'today' : ''}">${cell.dayNumber}</span></div>`;
+
+                    // 이 날짜가 필요로 하는 가장 마지막 트랙 인덱스 계산 (불필요한 하단 여백 방지)
+                    let maxTrackForCol = -1;
+                    for (let tIdx = tracks.length - 1; tIdx >= 0; tIdx--) {
+                        if (tracks[tIdx][col] !== null) { maxTrackForCol = tIdx; break; }
+                    }
+
+                    let tasksHtml = '<div class="cal-tasks-container">';
+                    for (let tIdx = 0; tIdx <= maxTrackForCol; tIdx++) {
+                        const wt = tracks[tIdx][col];
+                        if (!wt) {
+                            tasksHtml += `<div class="cal-task-spacer"></div>`;
+                        } else {
+                            const t = wt.task;
+                            const isDone = t.status === '완료';
+                            const color = isDone ? 'var(--status-done-cal)' : (t.status === '진행중' ? 'var(--status-ing)' : (t.status === '보류' ? 'var(--status-hold)' : 'var(--status-wait)'));
+                            
+                            // 셀 내 연결 형태 클래스 판별 (시작/중간/끝/단일)
+                            const isVisualStart = (col === wt.startCol);
+                            const isVisualEnd = (col === wt.endCol);
+                            let spanClass = 'span-single';
+                            if ( isVisualStart && !isVisualEnd ) spanClass = 'span-start';
+                            else if ( !isVisualStart && !isVisualEnd ) spanClass = 'span-mid';
+                            else if ( !isVisualStart && isVisualEnd ) spanClass = 'span-end';
+
+                            const isActualStart = (cell.dateStr === wt.range.start);
+                            const isActualEnd = (cell.dateStr === wt.range.end);
+
+                            // 배지 내부 텍스트 및 기간 안내 구성
+                            let prefixIcon = '';
+                            if (!isActualStart && col === 0) prefixIcon = '◀ ';
+                            if (isDone && isVisualStart) prefixIcon += '✓ ';
+
+                            let periodTag = '';
+                            if (wt.totalDays > 1 && isVisualStart) {
+                                periodTag = `<span class="badge-period-tag">${wt.totalDays}일</span>`;
+                            } else if (!isActualEnd && col === 6) {
+                                periodTag = `<span class="badge-period-tag">▶</span>`;
+                            }
+
+                            const tooltipText = `[${t.status}] ${t.title} (${formatShortDate(wt.range.start)} ~ ${formatShortDate(wt.range.end)}, ${wt.totalDays}일간)`;
+                            
+                            tasksHtml += `
+                                <div class="cal-task-badge ${spanClass} ${isDone ? 'status-done-badge' : ''}" 
+                                     draggable="true" 
+                                     data-task-id="${t.id}" 
+                                     data-date="${cell.dateStr}"
+                                     style="background-color:${color};" 
+                                     title="${tooltipText.replace(/"/g, '&quot;')}">
+                                    <span class="badge-title-text">${prefixIcon}${t.title}</span>
+                                    ${periodTag}
+                                </div>`;
+                        }
+                    }
+                    tasksHtml += '</div>';
+
+                    html += `<div class="${cellClass}" data-date="${cell.dateStr}">${dayDisplay}${tasksHtml}</div>`;
+                }
+            }
+
             html += '</div>';
             container.innerHTML = html;
         }
+
+        // 캘린더 연속 탭 마우스 호버 시 동일 업무 전체 강조 효과
+        document.body.addEventListener('mouseover', (e) => {
+            const badge = e.target.closest('.cal-task-badge');
+            if (badge) {
+                const taskId = badge.dataset.taskId;
+                document.querySelectorAll(`.cal-task-badge[data-task-id="${taskId}"]`).forEach(el => el.classList.add('cal-badge-hover'));
+            }
+        });
+        document.body.addEventListener('mouseout', (e) => {
+            const badge = e.target.closest('.cal-task-badge');
+            if (badge) {
+                const taskId = badge.dataset.taskId;
+                document.querySelectorAll(`.cal-task-badge[data-task-id="${taskId}"]`).forEach(el => el.classList.remove('cal-badge-hover'));
+            }
+        });
 
         /* =========================================
            4. 보고서 로직 
@@ -1212,7 +1595,7 @@
                         statusGroup[status].forEach(t => {
                             let dateStr = '';
                             if (t.startDate) {
-                                dateStr = `<div>${formatShortDate(t.startDate)} ~ ${isDone && t.endDate ? formatShortDate(t.endDate) : '진행 중'}</div>`;
+                                dateStr = `<div>${formatShortDate(t.startDate)} ~ ${isDone && t.endDate ? formatShortDate(t.endDate) : (t.endDate ? formatShortDate(t.endDate) + ' (예정)' : '진행 중')}</div>`;
                                 if (isDone && t.endDate) dateStr += `<div style="margin-top:6px;"><span class="duration-badge">${getDaysDiff(t.startDate, t.endDate)}일 소요</span></div>`;
                             } else dateStr = `<div>일정 미정</div>`;
                             
@@ -1340,7 +1723,7 @@
             
             if (chkState.search.trim() !== '') {
                 const term = chkState.search.toLowerCase();
-                filtered = filtered.filter(c => c.title.toLowerCase().includes(term) || (Array.isArray(c.items) && c.items.some(i => i && (i.text.toLowerCase().includes(term) || (Array.isArray(i.memos) && i.memos.some(m => m.toLowerCase().includes(term)))))));
+                filtered = filtered.filter(c => (c.title || '').toLowerCase().includes(term) || (Array.isArray(c.items) && c.items.some(i => i && ((i.text || '').toLowerCase().includes(term) || (Array.isArray(i.memos) && i.memos.some(m => (m || '').toLowerCase().includes(term)))))));
             }
             if (!filtered || filtered.length === 0) { 
                 container.innerHTML = `<div style="text-align:center; padding:5rem; color:var(--color-text-sub);">체크리스트가 없습니다.</div>`; return; 
@@ -1513,9 +1896,15 @@
                 calState.month = new Date().getMonth() + 1;
                 renderCalendar();
             }
+            if (target.closest('.cal-filter-chip')) {
+                const chip = target.closest('.cal-filter-chip');
+                calState.filter = chip.dataset.calFilter || 'all';
+                renderCalendar();
+            }
 
-            if (target.classList.contains('cal-task-badge')) {
-                const taskId = Number(target.dataset.taskId);
+            if (target.closest('.cal-task-badge')) {
+                const badge = target.closest('.cal-task-badge');
+                const taskId = Number(badge.dataset.taskId);
                 const t = globalTasks.find(x => x.id === taskId);
                 if(t) {
                     const tempT = {...t, isOpen: true}; 
@@ -1550,15 +1939,16 @@
             if (target.id === 'btn-next-month' || target.closest('#btn-next-month')) { monthlyChkState.month = getNextMonthStr(monthlyChkState.month); document.getElementById('monthly-month-select').value = monthlyChkState.month; renderMonthlyChecklist(); }
             
             if (target.id === 'btn-add-task') { 
+                const today = getTodayString();
                 document.getElementById('new-task-category').value = '기본업무'; 
                 document.getElementById('new-task-title').value = ''; 
-                document.getElementById('new-task-status').value = '대기'; 
-                document.getElementById('new-task-start').value = ''; 
-                document.getElementById('new-task-end').value = ''; 
+                document.getElementById('new-task-status').value = '진행중'; 
+                document.getElementById('new-task-start').value = today; 
+                document.getElementById('new-task-end').value = today; 
                 document.getElementById('new-task-subitems-container').innerHTML = ''; 
                 document.getElementById('task-add-modal').classList.remove('hidden'); 
                 resizeAllTextareas(); 
-                document.getElementById('new-task-category').focus(); 
+                document.getElementById('new-task-title').focus(); 
             }
             if (target.id === 'btn-close-task-modal') { document.getElementById('task-add-modal').classList.add('hidden'); if(document.activeElement) document.activeElement.blur(); }
             
@@ -1592,8 +1982,9 @@
                 const category = document.getElementById('new-task-category').value.trim() || '기본업무'; const status = document.getElementById('new-task-status').value;
                 let startDate = document.getElementById('new-task-start').value, endDate = document.getElementById('new-task-end').value;
                 const today = getTodayString();
-                if ((status === '진행중' || status === '보류' || status === '완료') && !startDate) startDate = today;
-                if (status === '완료' && !endDate) endDate = today;
+                if ((status === '진행중' || status === '보류' || status === '완료') && !startDate) startDate = endDate || today;
+                if (status === '완료' && !endDate) endDate = startDate || today;
+                if (startDate && endDate && startDate > endDate) { const tmp = startDate; startDate = endDate; endDate = tmp; }
 
                 const subItems = [];
                 document.querySelectorAll('.new-task-subitem-input').forEach(input => {
@@ -1611,15 +2002,28 @@
                 dashState.tab = (status === '완료') ? 'completed' : 'active';
             }
             
+            // 완료 모달 빠른 날짜 선택 버튼
+            if (target.id === 'btn-complete-use-planned') {
+                const modal = document.getElementById('task-complete-modal');
+                document.getElementById('complete-task-date').value = modal.dataset.plannedDate || getTodayString();
+            }
+            if (target.id === 'btn-complete-use-today') {
+                document.getElementById('complete-task-date').value = getTodayString();
+            }
+
             if (target.id === 'btn-cancel-complete') { document.getElementById('task-complete-modal').classList.add('hidden'); if(document.activeElement) document.activeElement.blur(); }
             if (target.id === 'btn-confirm-complete') {
-                const taskId = Number(document.getElementById('task-complete-modal').dataset.taskId);
+                const modal = document.getElementById('task-complete-modal');
+                const taskId = Number(modal.dataset.taskId);
                 const t = globalTasks.find(x => x.id === taskId);
                 if(t) {
-                    const dateVal = document.getElementById('complete-task-date').value || getTodayString();
-                    await updateDoc(doc(firestoreDB, "tasks", String(taskId)), { status: '완료', endDate: dateVal, startDate: t.startDate || dateVal });
+                    let endVal = document.getElementById('complete-task-date').value || t.endDate || getTodayString();
+                    let startVal = document.getElementById('complete-task-start-date').value || t.startDate || endVal;
+                    if (startVal > endVal) startVal = endVal;
+                    await updateDoc(doc(firestoreDB, "tasks", String(taskId)), { status: '완료', endDate: endVal, startDate: startVal });
+                    showToast(`업무가 완료 처리되었습니다 (${formatShortDate(startVal)} ~ ${formatShortDate(endVal)})`);
                 }
-                document.getElementById('task-complete-modal').classList.add('hidden');
+                modal.classList.add('hidden');
                 
                 const editModalBody = document.getElementById('task-edit-modal-body');
                 if (editModalBody && !document.getElementById('task-edit-modal').classList.contains('hidden')) {
@@ -1660,7 +2064,7 @@
             if (target.classList.contains('btn-delete') && !target.classList.contains('btn-delete-report')) { 
                 if(confirm('삭제?')) {
                     await deleteDoc(doc(firestoreDB, "tasks", String(target.closest('.task-card').dataset.id)));
-                    document.getElementById('task-edit-modal').classList.add('hidden'); // 삭제 시 모달 닫기
+                    document.getElementById('task-edit-modal').classList.add('hidden');
                 }
             }
             
@@ -1853,7 +2257,7 @@
                     document.getElementById('new-task-title').value = '';
                     document.getElementById('new-task-status').value = '진행중'; 
                     document.getElementById('new-task-start').value = dateStr;   
-                    document.getElementById('new-task-end').value = '';
+                    document.getElementById('new-task-end').value = dateStr;
                     document.getElementById('new-task-subitems-container').innerHTML = '';
                     document.getElementById('task-add-modal').classList.remove('hidden');
                     resizeAllTextareas();
@@ -1863,7 +2267,7 @@
         });
 
         /* 🚨 60fps 부드러운 Drag & Drop 및 Edge Auto-scroll */
-        let draggedItem = null; let dragType = null; let scrollRAF = null; let scrollDir = 0; let scrollTarget = null;
+        let draggedItem = null; let dragType = null; let dragOriginDate = null; let scrollRAF = null; let scrollDir = 0; let scrollTarget = null;
         function startAutoScroll(target, dir) { if (scrollRAF) return; scrollTarget = target; scrollDir = dir; function step() { if (!scrollTarget) return; scrollTarget.scrollTop += scrollDir * 12; scrollRAF = requestAnimationFrame(step); } scrollRAF = requestAnimationFrame(step); }
         function stopAutoScroll() { if (scrollRAF) { cancelAnimationFrame(scrollRAF); scrollRAF = null; scrollTarget = null; scrollDir = 0; } }
         function handleAutoScroll(e) {
@@ -1874,13 +2278,22 @@
         }
 
         document.addEventListener('dragstart', (e) => {
+            const calBadge = e.target.closest ? e.target.closest('.cal-task-badge') : null;
+            if (calBadge) {
+                window.isDragging = true;
+                draggedItem = calBadge;
+                dragType = 'cal-badge';
+                dragOriginDate = calBadge.dataset.date || (calBadge.closest('.cal-cell') ? calBadge.closest('.cal-cell').dataset.date : null);
+                e.dataTransfer.effectAllowed = "move";
+                setTimeout(() => calBadge.classList.add('item-dragging'), 0);
+                return;
+            }
             if (e.target.classList) {
                 window.isDragging = true;
                 if (e.target.classList.contains('chk-item-row')) { draggedItem = e.target; dragType = 'item'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('item-dragging'), 0); } 
                 else if (e.target.classList.contains('chk-card') || e.target.classList.contains('task-card')) { draggedItem = e.target; dragType = 'card'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('card-dragging'), 0); }
                 else if (e.target.classList.contains('memo-row')) { draggedItem = e.target; dragType = 'memo'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('memo-dragging'), 0); }
                 else if (e.target.classList.contains('sub-item-row')) { draggedItem = e.target; dragType = 'subItem'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('memo-dragging'), 0); }
-                else if (e.target.classList.contains('cal-task-badge')) { draggedItem = e.target; dragType = 'cal-badge'; e.dataTransfer.effectAllowed = "move"; setTimeout(() => e.target.classList.add('item-dragging'), 0); }
             }
         });
         
@@ -1910,16 +2323,6 @@
                 if (row && row !== draggedItem && row.parentNode === draggedItem.parentNode) {
                     const bounding = row.getBoundingClientRect(); const offset = bounding.y + (bounding.height / 2);
                     if (e.clientY > offset) row.after(draggedItem); else row.before(draggedItem);
-                }
-            }
-            else if (dragType === 'cal-badge') {
-                const badge = e.target.closest('.cal-task-badge');
-                const cell = e.target.closest('.cal-cell');
-                if (badge && badge !== draggedItem && badge.parentNode === draggedItem.parentNode) {
-                    const bounding = badge.getBoundingClientRect(); const offset = bounding.y + (bounding.height / 2);
-                    if (e.clientY > offset) badge.after(draggedItem); else badge.before(draggedItem);
-                } else if (cell && cell !== draggedItem.parentNode && !e.target.closest('.cal-task-badge')) {
-                    cell.appendChild(draggedItem);
                 }
             }
         });
@@ -1953,7 +2356,6 @@
                             await updateDoc(doc(firestoreDB, isMonthly ? "monthlyChecklists" : "checklists", String(sortedIds[i])), { order: i }); 
                         }
                     } else {
-                        const uid = getCurrentUserId(); 
                         const kanbanCol = draggedItem.closest('.kanban-col');
                         const columnStatus = kanbanCol ? kanbanCol.dataset.status : '완료';
                         const taskId = Number(draggedItem.dataset.id);
@@ -2009,41 +2411,40 @@
                         await updateDoc(doc(firestoreDB, "tasks", String(taskId)), { subItems: newSubItems });
                     }
                 }
-            }
-            else if (dragType === 'cal-badge') {
-                const cell = draggedItem.closest('.cal-cell');
+            } else if (dragType === 'cal-badge') {
+                const cell = e.target.closest('.cal-cell');
                 if (cell) {
-                    const dateStr = cell.dataset.date;
+                    const targetDateStr = cell.dataset.date;
                     const taskId = Number(draggedItem.dataset.taskId);
                     const taskToUpdate = globalTasks.find(t => t.id === taskId);
 
-                    if (taskToUpdate && dateStr) {
-                        let updatePayload = {};
-                        let isDateChanged = false;
+                    if (taskToUpdate && targetDateStr) {
+                        const fromDateStr = dragOriginDate || taskToUpdate.startDate || taskToUpdate.endDate;
+                        const diffDays = Math.round((new Date(targetDateStr) - new Date(fromDateStr)) / (1000 * 60 * 60 * 24));
 
-                        if (taskToUpdate.status === '완료') {
-                            if (taskToUpdate.endDate !== dateStr) { updatePayload.endDate = dateStr; isDateChanged = true; }
-                        } else {
-                            if (taskToUpdate.startDate !== dateStr) { updatePayload.startDate = dateStr; isDateChanged = true; }
-                        }
-
-                        if (isDateChanged) await updateDoc(doc(firestoreDB, "tasks", String(taskId)), updatePayload);
-
-                        const currentNodes = Array.from(cell.querySelectorAll('.cal-task-badge'));
-                        for (let i = 0; i < currentNodes.length; i++) {
-                            const id = Number(currentNodes[i].dataset.taskId);
-                            await updateDoc(doc(firestoreDB, "tasks", String(id)), { order: i });
+                        if (diffDays !== 0) {
+                            let updatePayload = {};
+                            if (taskToUpdate.startDate && taskToUpdate.endDate) {
+                                updatePayload.startDate = addDaysToDateStr(taskToUpdate.startDate, diffDays);
+                                updatePayload.endDate = addDaysToDateStr(taskToUpdate.endDate, diffDays);
+                            } else if (taskToUpdate.startDate) {
+                                updatePayload.startDate = targetDateStr;
+                            } else {
+                                updatePayload.endDate = targetDateStr;
+                            }
+                            await updateDoc(doc(firestoreDB, "tasks", String(taskId)), updatePayload);
                         }
                     }
                 }
             }
             
-            draggedItem.classList.remove('item-dragging', 'card-dragging', 'memo-dragging'); draggedItem = null; dragType = null;
+            draggedItem.classList.remove('item-dragging', 'card-dragging', 'memo-dragging'); draggedItem = null; dragType = null; dragOriginDate = null;
             window.isDragging = false;
+            renderCalendar();
         });
         document.addEventListener('dragend', (e) => { 
             if (draggedItem) draggedItem.classList.remove('item-dragging', 'card-dragging', 'memo-dragging'); 
-            draggedItem = null; dragType = null; stopAutoScroll(); 
+            draggedItem = null; dragType = null; dragOriginDate = null; stopAutoScroll(); 
             window.isDragging = false;
         });
 
@@ -2167,6 +2568,22 @@
             }
             
             const c=target.closest('.task-card'); 
+            if(c && target.classList.contains('task-start')) {
+                const taskId = Number(c.dataset.id);
+                const t = globalTasks.find(x => x.id === taskId);
+                if (t && t.startDate !== target.value) {
+                    await updateDoc(doc(firestoreDB, "tasks", String(taskId)), { startDate: target.value });
+                }
+                return;
+            }
+            if(c && target.classList.contains('task-end')) {
+                const taskId = Number(c.dataset.id);
+                const t = globalTasks.find(x => x.id === taskId);
+                if (t && t.endDate !== target.value) {
+                    await updateDoc(doc(firestoreDB, "tasks", String(taskId)), { endDate: target.value });
+                }
+                return;
+            }
             if(c && target.classList.contains('task-status')){
                 const taskId = Number(c.dataset.id);
                 const t = globalTasks.find(x => x.id === taskId);
@@ -2176,9 +2593,7 @@
                     
                     if(n === '완료') {
                         target.value = t.status; 
-                        document.getElementById('complete-task-date').value = t.endDate || today;
-                        document.getElementById('task-complete-modal').dataset.taskId = t.id;
-                        document.getElementById('task-complete-modal').classList.remove('hidden');
+                        openCompleteModalForTask(t);
                         return;
                     }
                     
